@@ -5,19 +5,16 @@
 **Find vulnerabilities in your own code with whatever model you have — small or large, local or cloud.**
 `creep` measures what your model can actually do, adapts its strategy, verifies findings by running them, and tells you plainly what it did *not* check.
 
-[![CI](https://github.com/Ludocius/creep/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Ludocius/creep/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/Ludocius/creep/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/Ludocius/creep/actions/workflows/codeql.yml)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Ludocius/creep/badge)](https://scorecard.dev/viewer/?uri=github.com/Ludocius/creep)
+[![v0.1 progress](https://img.shields.io/github/milestones/progress-percent/Ludocius/creep/1?label=v0.1)](https://github.com/Ludocius/creep/milestone/1)
+[![Open issues](https://img.shields.io/github/issues/Ludocius/creep)](https://github.com/Ludocius/creep/issues)
 [![Go Reference](https://pkg.go.dev/badge/github.com/Ludocius/creep.svg)](https://pkg.go.dev/github.com/Ludocius/creep)
-[![Go Report Card](https://goreportcard.com/badge/github.com/Ludocius/creep)](https://goreportcard.com/report/github.com/Ludocius/creep)
-[![Release](https://img.shields.io/github/v/release/Ludocius/creep?include_prereleases&sort=semver)](https://github.com/Ludocius/creep/releases)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 ![Status](https://img.shields.io/badge/status-pre--alpha-orange)
 
 </div>
 
 > [!WARNING]
-> **Pre-alpha.** Nothing is released yet. This README describes the v0.1 target; follow progress on the [Roadmap project](https://github.com/Ludocius/creep/projects) and the [v0.1 milestone](https://github.com/Ludocius/creep/milestones).
+> **Pre-alpha.** Nothing is released yet. This README describes the v0.1 target; follow progress on the [Roadmap project](https://github.com/users/Ludocius/projects/4) and the [v0.1 milestone](https://github.com/Ludocius/creep/milestones).
 
 ---
 
