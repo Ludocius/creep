@@ -1,0 +1,57 @@
+name: 🎯 False positive
+description: creep reported a vulnerability that is not real.
+labels: ["type/false-positive", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        False positives become regression tests. A **minimal, self-contained** snippet helps most.
+
+        > [!CAUTION]
+        > Do not paste private code. Rewrite the pattern in a few lines instead.
+  - type: input
+    id: version
+    attributes:
+      label: creep version
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model and tier
+      description: From the report header, e.g. `qwen3:8b · tier S`
+    validations:
+      required: true
+  - type: input
+    id: class
+    attributes:
+      label: Reported class and stage
+      placeholder: sqli · reader/triage
+    validations:
+      required: true
+  - type: dropdown
+    id: status
+    attributes:
+      label: Finding status in the report
+      options: [Probable, Verified]
+    validations:
+      required: true
+  - type: textarea
+    id: snippet
+    attributes:
+      label: Minimal code that triggers it
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why is it not a vulnerability?
+      description: For example, input is validated upstream, the sink is unreachable, or the value is a constant.
+    validations:
+      required: true
+  - type: textarea
+    id: why-output
+    attributes:
+      label: Output of creep why <finding-id>
+      render: text

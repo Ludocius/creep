@@ -1,0 +1,64 @@
+name: 🐛 Bug report
+description: creep crashed, behaved wrongly or produced invalid output.
+labels: ["type/bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > [!CAUTION]
+        > **Do not paste private code, secrets or tokens.** `creep doctor` output is safe to share.
+
+        A wrong or missing *finding* is not a bug: use the *False positive* or *False negative* forms.
+  - type: input
+    id: version
+    attributes:
+      label: creep version
+      description: Output of `creep version`
+      placeholder: v0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [Linux, macOS, Windows, Other]
+    validations:
+      required: true
+  - type: dropdown
+    id: contract
+    attributes:
+      label: Model contract
+      options: ["HTTP (OpenAI-compatible)", "HTTP (Anthropic)", "Command (CLI)", "Not relevant"]
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model and provider
+      placeholder: ollama/qwen3:8b · claude -p · vllm/llama-4-70b
+  - type: textarea
+    id: command
+    attributes:
+      label: Command you ran
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of creep doctor
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Run with `--log-level debug`. Review it before pasting.
+      render: text

@@ -1,0 +1,43 @@
+name: 📜 Recipe proposal
+description: Propose a recipe (YAML hints for a vulnerability class and framework).
+labels: ["type/feature", "area/recipes", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: Recipes are **data, not code**. A recipe only loads if its vulnerable and safe fixtures pass.
+  - type: input
+    id: class
+    attributes:
+      label: Vulnerability class or CWE
+    validations:
+      required: true
+  - type: input
+    id: scope
+    attributes:
+      label: Language and frameworks
+      placeholder: python · flask, fastapi
+    validations:
+      required: true
+  - type: textarea
+    id: recipe
+    attributes:
+      label: Draft recipe
+      render: yaml
+      value: |
+        id:
+        class:
+        applies_to: { lang: , framework: [] }
+        sources: []
+        sinks: []
+        hint: ""
+        poc: http_request
+        fixtures: { vulnerable: , safe: }
+    validations:
+      required: true
+  - type: textarea
+    id: fixtures
+    attributes:
+      label: Vulnerable and safe fixtures
+      render: text
+    validations:
+      required: true

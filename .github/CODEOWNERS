@@ -1,0 +1,12 @@
+# Default owner
+*                        @Ludocius
+
+# Security-sensitive: two approvals once there are two or more maintainers (see GOVERNANCE.md)
+/internal/gateway/       @Ludocius
+/internal/redact/        @Ludocius
+/internal/egress/        @Ludocius
+/internal/sandbox/       @Ludocius
+/internal/planner/       @Ludocius
+/prompts/                @Ludocius
+/.github/workflows/      @Ludocius
+/.goreleaser.yaml        @Ludocius

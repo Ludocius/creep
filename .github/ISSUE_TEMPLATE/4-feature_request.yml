@@ -1,0 +1,31 @@
+name: ✨ Feature request
+description: Propose a new capability or a change in behavior.
+labels: ["type/feature", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: Impact
+      description: Any checked box means the change needs an ADR (docs/adr/0000-template.md) before code.
+      options:
+        - label: Adds a dependency
+        - label: Changes a public contract (CLI flags, exit codes, JSON/SARIF, config keys)
+        - label: Touches privacy, the gateway, the sandbox or the planner
+        - label: Changes results (prompts, rules, calibration)

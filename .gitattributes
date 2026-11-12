@@ -1,0 +1,3 @@
+* text=auto eol=lf
+testdata/replay/** linguist-generated=true -diff
+docs/map.md linguist-generated=true

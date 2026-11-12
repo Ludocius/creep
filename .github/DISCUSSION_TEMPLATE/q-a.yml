@@ -1,0 +1,13 @@
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of creep doctor (if relevant)
+      description: Safe to share; it never prints secrets.
+      render: text

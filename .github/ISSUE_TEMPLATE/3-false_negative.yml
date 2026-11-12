@@ -1,0 +1,57 @@
+name: 🕳️ False negative
+description: creep missed a real vulnerability.
+labels: ["type/false-negative", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Missed vulnerabilities become cases in `testdata/apps` and `creep-bench`, each with a safe twin.
+
+        > [!CAUTION]
+        > Never report an undisclosed vulnerability in someone else's project here. Disclose it to them first.
+  - type: input
+    id: version
+    attributes:
+      label: creep version
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model and tier
+    validations:
+      required: true
+  - type: input
+    id: cwe
+    attributes:
+      label: Vulnerability class or CWE
+      placeholder: CWE-918 (SSRF)
+    validations:
+      required: true
+  - type: dropdown
+    id: coverage
+    attributes:
+      label: What did the coverage section say about this class?
+      options: [Covered, Partial, Not evaluated, Not listed]
+    validations:
+      required: true
+  - type: textarea
+    id: vulnerable
+    attributes:
+      label: Minimal vulnerable code
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: safe
+    attributes:
+      label: Fixed version (optional)
+      description: The safe twin helps us measure false positives too.
+      render: text
+  - type: textarea
+    id: exploit
+    attributes:
+      label: How is it exploitable?
+      description: Input and expected effect. A short PoC is welcome.
+    validations:
+      required: true

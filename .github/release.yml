@@ -1,0 +1,20 @@
+# GitHub-native release notes, grouped by PR label. goreleaser uses them via changelog.use: github-native.
+changelog:
+  exclude:
+    labels: ["skip-changelog", "type/chore"]
+    authors: ["dependabot[bot]"]
+  categories:
+    - title: "⚠️ Breaking changes"
+      labels: ["breaking"]
+    - title: "🔒 Security"
+      labels: ["security"]
+    - title: "🎯 Changes that affect results"
+      labels: ["affects-results"]
+    - title: "✨ New"
+      labels: ["type/feature"]
+    - title: "🐛 Fixes"
+      labels: ["type/bug", "type/false-positive", "type/false-negative"]
+    - title: "📚 Documentation"
+      labels: ["type/docs"]
+    - title: "Other changes"
+      labels: ["*"]

@@ -1,0 +1,39 @@
+name: 🤖 Model preset
+description: Add or fix a preset for a model CLI or provider.
+labels: ["type/feature", "area/presets", "needs-triage"]
+body:
+  - type: input
+    id: tool
+    attributes:
+      label: CLI or provider and version
+      placeholder: Gemini CLI 1.4 · LM Studio 0.4
+    validations:
+      required: true
+  - type: dropdown
+    id: contract
+    attributes:
+      label: Contract
+      options: ["Command (CLI)", "HTTP (OpenAI-compatible)", "HTTP (Anthropic)"]
+    validations:
+      required: true
+  - type: textarea
+    id: preset
+    attributes:
+      label: Proposed preset
+      render: yaml
+    validations:
+      required: true
+  - type: textarea
+    id: canary
+    attributes:
+      label: Tool canary output
+      description: Output of `creep doctor --canary-only`. Command presets are rejected if the canary fails.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: calibration
+    attributes:
+      label: Calibration summary (optional)
+      description: Output of `creep calibrate --summary`.
+      render: text

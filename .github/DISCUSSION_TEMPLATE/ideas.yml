@@ -1,0 +1,13 @@
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: What would you like creep to do, and what problem does it solve?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Who benefits (developer, security engineer, CI owner) and how you work today.
