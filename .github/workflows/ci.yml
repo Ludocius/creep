@@ -39,7 +39,7 @@ jobs:
         run: echo "CGO_ENABLED=0" >> "$GITHUB_ENV"
       - name: make check
         run: |
-          make_bin=make
+          make_bin="make"
           command -v make >/dev/null || make_bin=mingw32-make
           "$make_bin" check
           "$make_bin" build
@@ -75,7 +75,7 @@ jobs:
           cache: false
       - name: govulncheck
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+          go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
           "$(go env GOPATH)/bin/govulncheck" ./...
 
   secrets:
