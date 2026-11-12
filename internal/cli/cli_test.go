@@ -59,6 +59,19 @@ func TestRun(t *testing.T) {
 		{"command names are case sensitive", []string{"HELP"}, exitcode.ConfigError, nil, []string{`unknown command "HELP"`}},
 		{"flag after command overrides flag before", []string{"--format", "xml", "version", "--format", "json"}, exitcode.OK, []string{"commit: "}, nil},
 		{"invalid flag after command", []string{"--format", "json", "init", "--format", "xml"}, exitcode.ConfigError, nil, []string{"invalid --format"}},
+		{"help with invalid format", []string{"--format=bad", "help"}, exitcode.ConfigError, nil, []string{`invalid --format "bad"`}},
+		{"help with invalid log level", []string{"--log-level", "trace", "help"}, exitcode.ConfigError, nil, []string{`invalid --log-level "trace"`}},
+		{"help with invalid flag after it", []string{"help", "--format=bad"}, exitcode.ConfigError, nil, []string{`invalid --format "bad"`}},
+		{"help with missing config", []string{"--config", missing, "help"}, exitcode.ConfigError, nil, []string{"does not exist"}},
+		{"help with unknown flag", []string{"help", "--bogus"}, exitcode.ConfigError, nil, []string{"bogus", "Usage:"}},
+		{"help unknown command", []string{"help", "bogus"}, exitcode.ConfigError, nil, []string{`unknown command "bogus"`, "Usage:"}},
+		{"help too many args", []string{"help", "scan", "init"}, exitcode.ConfigError, nil, []string{`unexpected arguments: ["init"]`}},
+		{"help known command", []string{"help", "scan"}, exitcode.OK, []string{"creep scan [flags]", "Exit codes:"}, nil},
+		{"help help", []string{"help", "help"}, exitcode.OK, []string{"Commands:"}, nil},
+		{"help command with valid flags", []string{"--format", "json", "help", "version", "--log-level=debug"}, exitcode.OK, []string{"creep version [flags]"}, nil},
+		{"help flag with invalid format", []string{"--format=bad", "--help"}, exitcode.ConfigError, nil, []string{`invalid --format "bad"`}},
+		{"invalid format after help flag", []string{"--help", "--format=bad"}, exitcode.ConfigError, nil, []string{`invalid --format "bad"`}},
+		{"command help flag with invalid format", []string{"scan", "--help", "--log-level=trace"}, exitcode.ConfigError, nil, []string{`invalid --log-level "trace"`}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -149,5 +162,55 @@ func TestHelpMarksUnimplementedCommands(t *testing.T) {
 	for _, name := range []string{"init", "doctor", "scan", "config"} {
 		c, _ := findCommand(name)
 		assertContains(t, "usage", stdout, []string{c.name + " ", c.summary, "(not implemented yet)"})
+	}
+}
+
+// TestErrorsEscapeControlBytes guards the terminal: user input echoed in an
+// error (here, an unknown flag name) must never write raw control bytes.
+func TestErrorsEscapeControlBytes(t *testing.T) {
+	evil := "-\x1b]0;PWN\a\u009b\xff"
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"unknown global flag", []string{evil, "version"}},
+		{"unknown command flag", []string{"scan", evil}},
+		{"unknown help flag", []string{"help", evil}},
+		{"unknown command", []string{evil[1:]}},
+		{"help unknown command", []string{"help", evil[1:]}},
+		{"invalid format", []string{"--format", evil, "version"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			code, _, stderr := run(tt.args...)
+			if code != exitcode.ConfigError {
+				t.Errorf("exit code = %d, want %d", code, exitcode.ConfigError)
+			}
+			for _, r := range strings.TrimRight(stderr, "\n") {
+				if r != '\n' && (r < 0x20 || r == 0x7f || r >= 0x80 && r < 0xa0 || r == '\u202e') {
+					t.Fatalf("stderr contains control rune %U: %q", r, stderr)
+				}
+			}
+			assertContains(t, "stderr", stderr, []string{`\x1b]0;PWN`})
+		})
+	}
+}
+
+func TestEscapeControl(t *testing.T) {
+	tests := []struct{ in, want string }{
+		{"plain text", "plain text"},
+		{`back\slash`, `back\slash`},
+		{"esc\x1b[31m", `esc\x1b[31m`},
+		{"bell\a nul\x00 del\x7f", `bell\x07 nul\x00 del\x7f`},
+		{"csi\u009b", `csi\x9b`},
+		{"bidi\u202e", `bidi\u202e`},
+		{"invalid\xff", `invalid\xff`},
+		{"tab\tnewline\n", `tab\x09newline\x0a`},
+		{"ünïcode ok", "ünïcode ok"},
+	}
+	for _, tt := range tests {
+		if got := escapeControl(tt.in); got != tt.want {
+			t.Errorf("escapeControl(%q) = %q, want %q", tt.in, got, tt.want)
+		}
 	}
 }
