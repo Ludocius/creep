@@ -18,16 +18,34 @@ linters:
     depguard:
       rules:
         # AGENTS.md invariant 1: only internal/gateway may touch the network.
-        # Matching is by prefix, so "net" also covers net/http, net/url and
-        # every other net/* package.
+        # This rule is editor feedback only. depguard globs cannot anchor the
+        # exception to the module root (internal/cli/internal/gateway would
+        # match too) nor see files excluded by build tags, so the authority is
+        # `make budget` (internal/tools/budget/imports.go), which also carries
+        # the os/exec and syscall allowlists. Matching is by prefix and the
+        # longest match wins, so "net" covers every net/* except net/netip.
         network-only-in-gateway:
           list-mode: lax
           files:
             - "$all"
             - "!**/internal/gateway/**"
+          allow:
+            - net/netip
           deny:
             - pkg: "net"
               desc: "network access lives only in internal/gateway (AGENTS.md invariant 1)"
+            - pkg: "crypto/tls"
+              desc: "network access lives only in internal/gateway (AGENTS.md invariant 1)"
+            - pkg: "log/syslog"
+              desc: "network access lives only in internal/gateway (AGENTS.md invariant 1)"
+            - pkg: "golang.org/x/net"
+              desc: "network access lives only in internal/gateway (AGENTS.md invariant 1)"
+            - pkg: "golang.org/x/sys"
+              desc: "raw system calls can open sockets; see make budget"
+            - pkg: "plugin"
+              desc: "foreign code can open sockets"
+            - pkg: "unsafe"
+              desc: "unchecked code (go:linkname) can open sockets"
     gosec:
       excludes:
         # G304 (file path from a variable): creep reads files the user points

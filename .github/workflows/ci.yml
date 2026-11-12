@@ -128,8 +128,17 @@ jobs:
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           "$(go env GOPATH)/bin/actionlint" -color
+      # Online audits use the job's read-only token to resolve refs, so an
+      # impostor commit (a SHA from a fork) or a stale pin comment fails. The
+      # action pins every zizmor wheel by hash (pip --require-hashes).
       - name: zizmor
-        run: pipx run --spec zizmor==1.32.0 zizmor --offline --min-severity=low .
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          version: 1.32.0
+          online-audits: true
+          min-severity: low
+          advanced-security: false
+          token: ${{ github.token }}
 
   budget:
     runs-on: ubuntu-latest
