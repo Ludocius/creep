@@ -97,3 +97,34 @@ func TestReadConfig(t *testing.T) {
 		})
 	}
 }
+
+// TestConfigFollowsSymlinks checks the opened target is judged, not the link:
+// a link to a device is rejected and a link to a regular file is accepted.
+func TestConfigFollowsSymlinks(t *testing.T) {
+	skipUnlessOS(t, "unix")
+	dir := t.TempDir()
+	regular := filepath.Join(dir, "creep.yaml")
+	if err := os.WriteFile(regular, []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name     string
+		target   string
+		wantCode int
+	}{
+		{"link to device", "/dev/zero", exitcode.ConfigError},
+		{"link to regular file", regular, exitcode.OK},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			link := filepath.Join(dir, strings.ReplaceAll(tt.name, " ", "-"))
+			if err := os.Symlink(tt.target, link); err != nil {
+				t.Fatal(err)
+			}
+			code, _, stderr := run("--config", link, "version")
+			if code != tt.wantCode {
+				t.Errorf("exit code = %d, want %d\nstderr: %s", code, tt.wantCode, stderr)
+			}
+		})
+	}
+}

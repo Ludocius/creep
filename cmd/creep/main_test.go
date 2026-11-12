@@ -34,6 +34,16 @@ func TestProcessExitCodes(t *testing.T) {
 		{"missing config", []string{"--config", "does-not-exist.yaml", "version"}, 2},
 		{"unimplemented scan fails closed", []string{"scan", "."}, 2},
 		{"invalid format after positional", []string{"scan", ".", "--format", "xml"}, 2},
+		{"short help", []string{"-h"}, 0},
+		{"help command", []string{"help"}, 0},
+		{"command help", []string{"version", "--help"}, 0},
+		{"unimplemented init fails closed", []string{"init"}, 2},
+		{"unimplemented doctor fails closed", []string{"doctor"}, 2},
+		{"unimplemented config fails closed", []string{"config"}, 2},
+		{"version extra args", []string{"version", "x"}, 2},
+		{"invalid log level", []string{"--log-level", "loud", "version"}, 2},
+		{"config is a directory", []string{"--config", ".", "version"}, 2},
+		{"flag after double dash is positional", []string{"version", "--", "--format=json"}, 2},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
