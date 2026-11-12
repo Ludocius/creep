@@ -45,3 +45,42 @@ func TestResolve(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveWithoutRevision(t *testing.T) {
+	tests := []struct {
+		name     string
+		settings []debug.BuildSetting
+		want     string
+	}{
+		{"no vcs settings", nil, unknown},
+		{"modified without revision", []debug.BuildSetting{{Key: "vcs.modified", Value: "true"}}, unknown},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bi := &debug.BuildInfo{Settings: tt.settings}
+			read := func() (*debug.BuildInfo, bool) { return bi, true }
+			if got := resolve("", "", read).Commit; got != tt.want {
+				t.Errorf("Commit = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetIsNeverEmpty(t *testing.T) {
+	info := Get()
+	tests := []struct {
+		field string
+		value string
+	}{
+		{"Version", info.Version},
+		{"Commit", info.Commit},
+		{"GoVersion", info.GoVersion},
+	}
+	for _, tt := range tests {
+		t.Run(tt.field, func(t *testing.T) {
+			if tt.value == "" {
+				t.Errorf("Get().%s is empty", tt.field)
+			}
+		})
+	}
+}

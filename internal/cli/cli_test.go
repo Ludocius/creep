@@ -52,6 +52,12 @@ func TestRun(t *testing.T) {
 		{"doctor stub", []string{"doctor"}, exitcode.OK, nil, []string{"not implemented yet"}},
 		{"scan stub", []string{"scan", "."}, exitcode.OK, nil, []string{"not implemented yet"}},
 		{"config stub", []string{"config", "explain"}, exitcode.OK, nil, []string{"not implemented yet"}},
+		{"global flag missing value", []string{"--format"}, exitcode.ConfigError, nil, []string{"needs an argument", "Usage:"}},
+		{"single dash global flag", []string{"-format=json", "version"}, exitcode.OK, []string{"commit: "}, nil},
+		{"command short help", []string{"version", "-h"}, exitcode.OK, []string{"creep version", "Exit codes:"}, nil},
+		{"command names are case sensitive", []string{"HELP"}, exitcode.ConfigError, nil, []string{`unknown command "HELP"`}},
+		{"flag after command overrides flag before", []string{"--format", "xml", "version", "--format", "json"}, exitcode.OK, []string{"commit: "}, nil},
+		{"invalid flag after command", []string{"--format", "json", "init", "--format", "xml"}, exitcode.ConfigError, nil, []string{"invalid --format"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
