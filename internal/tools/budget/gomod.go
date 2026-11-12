@@ -12,6 +12,11 @@ import (
 type modFile struct {
 	Module  struct{ Path string }
 	Require []modRequire
+	Replace []modReplace
+}
+
+type modReplace struct {
+	Old, New struct{ Path, Version string }
 }
 
 type modRequire struct {

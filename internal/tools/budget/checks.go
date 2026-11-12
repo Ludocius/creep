@@ -7,10 +7,7 @@ import (
 	"io/fs"
 	"path"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
-	"unicode"
 )
 
 // parseAllowlist reads "module docs/adr/NNNN-name.md" lines; '#' starts a comment.
@@ -54,8 +51,22 @@ func checkCap(what string, got, limit int64, unit string) []string {
 	return []string{fmt.Sprintf("%s is %d %s, cap is %d", what, got, unit, limit)}
 }
 
-// skippedDirs hold generated or third-party files that the budget does not own.
-var skippedDirs = map[string]bool{".git": true, "bin": true, "dist": true, "vendor": true, "testdata": true}
+// skipDir reports directories the budget does not own: .git and testdata
+// anywhere (the go command never builds testdata), and the build outputs and
+// vendor tree only at the root, so a package named internal/bin is still
+// checked. A root vendor/ fails the workspace check instead.
+func skipDir(name string, d fs.DirEntry) bool {
+	if !d.IsDir() || name == "." {
+		return false
+	}
+	switch d.Name() {
+	case ".git", "testdata":
+		return true
+	case "bin", "dist", "vendor":
+		return path.Dir(name) == "."
+	}
+	return false
+}
 
 // checkFileLines reports .go files under root with more than maxLines lines.
 func checkFileLines(fsys fs.FS, maxLines int) ([]string, error) {
@@ -64,7 +75,7 @@ func checkFileLines(fsys fs.FS, maxLines int) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() && skippedDirs[d.Name()] {
+		if skipDir(name, d) {
 			return fs.SkipDir
 		}
 		if d.IsDir() || filepath.Ext(name) != ".go" {
@@ -80,59 +91,6 @@ func checkFileLines(fsys fs.FS, maxLines int) ([]string, error) {
 		return nil
 	})
 	return problems, err
-}
-
-var (
-	// usesKey finds `uses:` in block or flow style, with or without quoted
-	// keys, and captures the value up to whitespace, a quote, ',' or '}'.
-	usesKey   = regexp.MustCompile(`(?:^|[\s{,\-])["']?uses["']?\s*:\s*["']?([^\s"',}#]*)`)
-	shaPinned = regexp.MustCompile(`@[0-9a-f]{40}$`)
-	digestPin = regexp.MustCompile(`@sha256:[0-9a-f]{64}$`)
-	// yamlEscape matches YAML double-quoted escapes a trigger name could hide behind.
-	yamlEscape = regexp.MustCompile(`\\(?:x[0-9A-Fa-f]{2}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})`)
-)
-
-// checkWorkflow reports pull_request_target triggers and actions or images not
-// pinned immutably. It is a fast local backstop; zizmor in CI is the authority.
-func checkWorkflow(name string, data []byte) []string {
-	var problems []string
-	for i, line := range strings.Split(string(data), "\n") {
-		code, _, _ := strings.Cut(line, "#")
-		if strings.Contains(unescapeYAML(code), "pull_request_target") {
-			problems = append(problems, fmt.Sprintf("%s:%d: pull_request_target is forbidden", name, i+1))
-		}
-		for _, m := range usesKey.FindAllStringSubmatch(code, -1) {
-			if why := unpinned(m[1]); why != "" {
-				problems = append(problems, fmt.Sprintf("%s:%d: %s %s", name, i+1, m[1], why))
-			}
-		}
-	}
-	return problems
-}
-
-func unpinned(ref string) string {
-	switch {
-	case strings.HasPrefix(ref, "./"):
-		return ""
-	case strings.HasPrefix(ref, "docker://"):
-		if digestPin.MatchString(ref) {
-			return ""
-		}
-		return "is not pinned by @sha256 digest"
-	case shaPinned.MatchString(ref):
-		return ""
-	}
-	return "is not pinned by commit SHA"
-}
-
-func unescapeYAML(s string) string {
-	return yamlEscape.ReplaceAllStringFunc(s, func(esc string) string {
-		r, err := strconv.ParseUint(esc[2:], 16, 32)
-		if err != nil || r > unicode.MaxRune {
-			return esc
-		}
-		return string(rune(r))
-	})
 }
 
 // isADRPath accepts only clean slash paths inside docs/adr/, so an allowlist

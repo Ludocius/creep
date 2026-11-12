@@ -16,6 +16,7 @@ type sourceFile struct {
 	Pkg     string // import path of its directory
 	Test    bool
 	Imports []string
+	Uses    []string // watched calls such as "os.StartProcess"; see procs.go
 }
 
 // gatewayDir is the only package tree allowed to touch the network
@@ -43,7 +44,7 @@ var syscallAllowed = map[string]string{
 	"internal/cli/fifo_unix_test.go": "creates a FIFO with syscall.Mkfifo",
 }
 
-// collectSources parses the imports of every .go file under fsys, including
+// collectSources parses the imports and watched calls of every .go file under fsys, including
 // files excluded by build constraints, so a foo_freebsd.go cannot hide one.
 func collectSources(fsys fs.FS, modPath string) ([]sourceFile, error) {
 	var files []sourceFile
@@ -52,7 +53,7 @@ func collectSources(fsys fs.FS, modPath string) ([]sourceFile, error) {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() && name != "." && skippedDirs[d.Name()] {
+		if skipDir(name, d) {
 			return fs.SkipDir
 		}
 		if d.IsDir() || path.Ext(name) != ".go" {
@@ -74,12 +75,12 @@ func parseImports(fsys fs.FS, fset *token.FileSet, name string) (sourceFile, err
 	if err != nil {
 		return sourceFile{}, err
 	}
-	ast, err := parser.ParseFile(fset, name, src, parser.ImportsOnly)
+	file, err := parser.ParseFile(fset, name, src, parser.SkipObjectResolution)
 	if err != nil {
 		return sourceFile{}, fmt.Errorf("parse %s: %w", name, err)
 	}
-	f := sourceFile{Name: name, Test: strings.HasSuffix(name, "_test.go")}
-	for _, spec := range ast.Imports {
+	f := sourceFile{Name: name, Test: strings.HasSuffix(name, "_test.go"), Uses: selectorUses(file)}
+	for _, spec := range file.Imports {
 		imp, err := strconv.Unquote(spec.Path.Value)
 		if err != nil {
 			return sourceFile{}, fmt.Errorf("parse %s: import %s: %w", name, spec.Path.Value, err)

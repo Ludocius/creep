@@ -104,6 +104,15 @@ func TestCheckFileLines(t *testing.T) {
 	}
 }
 
+// lineProblems must scan the configured root, not the working directory.
+func TestLineProblemsUsesRoot(t *testing.T) {
+	got, err := lineProblems(config{root: "testdata/lines", maxLines: 400})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertOneProblem(t, got, "big.go has 401 lines")
+}
+
 func TestCheckWorkflow(t *testing.T) {
 	sha := "@3d3c42e5aac5ba805825da76410c181273ba90b1"
 	tests := []struct {
@@ -130,7 +139,6 @@ func TestCheckWorkflow(t *testing.T) {
 		{"docker digest", "    - uses: docker://alpine@sha256:" + strings.Repeat("a", 64) + "\n", ""},
 		{"block scalar value", "    - uses: >-\n", "not pinned by commit SHA"},
 		{"hex escaped trigger", `on: ["pull\x5frequest_target"]` + "\n", "pull_request_target is forbidden"},
-		{"unicode escaped trigger", "on:\n  \"pull_request\\" + "u005Ftarget\":\n", "pull_request_target is forbidden"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -59,7 +59,10 @@ func run(cfg config, out io.Writer) int {
 
 func collect(cfg config) ([]string, error) {
 	var problems []string
-	steps := []func(config) ([]string, error){depProblems, importProblems, netReachProblems, moduleProblems, binaryProblems, lineProblems, workflowProblems}
+	steps := []func(config) ([]string, error){
+		workspaceProblems, depProblems, importProblems, foreignProblems, netReachProblems,
+		moduleProblems, binaryProblems, lineProblems, workflowProblems,
+	}
 	for _, step := range steps {
 		p, err := step(cfg)
 		if err != nil {
@@ -100,7 +103,7 @@ func importProblems(cfg config) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("scan imports: %w", err)
 	}
-	return checkImports(mf.Module.Path, files), nil
+	return append(checkImports(mf.Module.Path, files), checkProcessUses(mf.Module.Path, files)...), nil
 }
 
 func netReachProblems(cfg config) ([]string, error) {
@@ -124,6 +127,8 @@ func netReachProblems(cfg config) ([]string, error) {
 func goOutput(dir string, args ...string) ([]byte, error) {
 	cmd := exec.Command("go", args...) //nolint:gosec // G204: callers pass fixed go subcommands, never user input
 	cmd.Dir = dir
+	// A go.work above the root must not change what the budget sees.
+	cmd.Env = append(os.Environ(), "GOWORK=off")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
@@ -168,7 +173,7 @@ func binaryProblems(cfg config) ([]string, error) {
 }
 
 func lineProblems(cfg config) ([]string, error) {
-	return checkFileLines(os.DirFS("."), cfg.maxLines)
+	return checkFileLines(os.DirFS(cfg.root), cfg.maxLines)
 }
 
 // workflowProblems checks workflows and composite actions (action.yml) anywhere in the repo.
@@ -179,7 +184,7 @@ func workflowProblems(cfg config) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() && name != "." && d.Name() != ".github" && skippedDirs[d.Name()] {
+		if skipDir(name, d) {
 			return fs.SkipDir
 		}
 		if d.IsDir() || !isWorkflowFile(name) {
