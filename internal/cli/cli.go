@@ -34,7 +34,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 
 func runCommand(cmd command, args []string, opts globalOptions, stdout, stderr io.Writer) int {
 	fs := newFlagSet("creep "+cmd.name, &opts)
-	err := fs.Parse(args)
+	flagArgs, positional := splitArgs(fs, args)
+	err := fs.Parse(flagArgs)
 	if errors.Is(err, flag.ErrHelp) {
 		printCommandUsage(stdout, cmd)
 		return exitcode.OK
@@ -48,7 +49,7 @@ func runCommand(cmd command, args []string, opts globalOptions, stdout, stderr i
 		fmt.Fprintf(stderr, "creep: %v\n", err)
 		return exitcode.ConfigError
 	}
-	return cmd.run(env{stdout: stdout, stderr: stderr, opts: opts}, fs.Args())
+	return cmd.run(env{stdout: stdout, stderr: stderr, opts: opts}, positional)
 }
 
 // usageError handles top-level parse failures; -h/--help is not a failure.

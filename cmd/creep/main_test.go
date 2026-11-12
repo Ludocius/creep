@@ -32,6 +32,8 @@ func TestProcessExitCodes(t *testing.T) {
 		{"unknown flag", []string{"--nope", "version"}, 2},
 		{"invalid format", []string{"version", "--format", "xml"}, 2},
 		{"missing config", []string{"--config", "does-not-exist.yaml", "version"}, 2},
+		{"unimplemented scan fails closed", []string{"scan", "."}, 2},
+		{"invalid format after positional", []string{"scan", ".", "--format", "xml"}, 2},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

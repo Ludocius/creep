@@ -29,7 +29,7 @@ func printCommandUsage(w io.Writer, c command) {
 
 func globalFlagsHelp() string {
 	d := defaultOptions()
-	return fmt.Sprintf("Global flags (before or after the command):\n"+
+	return fmt.Sprintf("Global flags (before or after the command; \"--\" ends flags):\n"+
 		"  --config <path>     config file to use instead of the default layers\n"+
 		"  --format <format>   output format: %s (default %q)\n"+
 		"  --log-level <level> log level: %s (default %q)\n",

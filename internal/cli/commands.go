@@ -22,11 +22,11 @@ type command struct {
 }
 
 var commands = []command{
-	{"init", "create a creep.yaml for this project", stub("init", "#2")},
-	{"doctor", "check models, sandbox runtime and environment", stub("doctor", "#6, #21")},
-	{"scan", "scan a local repository for vulnerabilities", stub("scan", "the v0.1 milestone")},
+	{"init", "create a creep.yaml for this project (not implemented yet)", stub("init", "#2")},
+	{"doctor", "check models, sandbox runtime and environment (not implemented yet)", stub("doctor", "#6, #21")},
+	{"scan", "scan a local repository for vulnerabilities (not implemented yet)", stub("scan", "the v0.1 milestone")},
 	{"version", "print version, commit and Go version", runVersion},
-	{"config", "show the effective configuration and its sources", stub("config", "#2")},
+	{"config", "show the effective configuration and its sources (not implemented yet)", stub("config", "#2")},
 }
 
 func findCommand(name string) (command, bool) {
@@ -38,18 +38,18 @@ func findCommand(name string) (command, bool) {
 	return command{}, false
 }
 
-// stub reports honestly that a command exists in the contract but is not
-// built yet. It exits 0 because nothing was evaluated, so nothing is blocking.
+// stub keeps a contracted command registered but fails closed: a CI gate
+// running an unbuilt "creep scan" must not pass with nothing scanned.
 func stub(name, ref string) func(env, []string) int {
 	return func(e env, _ []string) int {
 		fmt.Fprintf(e.stderr, "creep %s: not implemented yet (see %s)\n", name, ref)
-		return exitcode.OK
+		return exitcode.ConfigError
 	}
 }
 
 func runVersion(e env, args []string) int {
 	if len(args) > 0 {
-		fmt.Fprintf(e.stderr, "creep version: unexpected arguments: %v\n", args)
+		fmt.Fprintf(e.stderr, "creep version: unexpected arguments: %q\n", args)
 		return exitcode.ConfigError
 	}
 	info := buildinfo.Get()
