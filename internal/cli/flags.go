@@ -103,9 +103,9 @@ func validateConfigPath(path string) error {
 }
 
 // openConfig opens path once and checks the opened file itself, so a device
-// (NUL, CON, /dev/zero) or a swapped path cannot pass as a config file.
+// (NUL, CON, /dev/zero, a FIFO) or a swapped path cannot pass as a config file.
 func openConfig(path string) (*os.File, error) {
-	f, err := os.Open(path)
+	f, err := openForCheck(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("--config %q: file does not exist", path)
 	}
@@ -115,6 +115,10 @@ func openConfig(path string) (*os.File, error) {
 	if err := requireRegular(f, path); err != nil {
 		f.Close()
 		return nil, err
+	}
+	if err := restoreBlocking(f); err != nil {
+		f.Close()
+		return nil, configError(path, err)
 	}
 	return f, nil
 }
