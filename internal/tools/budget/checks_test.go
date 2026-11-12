@@ -7,22 +7,27 @@ import (
 	"testing/fstest"
 )
 
-func TestDirectRequires(t *testing.T) {
+func TestDirectModules(t *testing.T) {
+	reqs := []modRequire{
+		{Path: "example.com/a"},
+		{Path: "example.com/b", Indirect: true},
+		{Path: "example.com/c", Indirect: true},
+		{Path: "example.com/c/v2", Indirect: true},
+	}
 	tests := []struct {
-		name  string
-		gomod string
-		want  []string
+		name    string
+		imports []string
+		want    []string
 	}{
-		{"none", "module m\n\ngo 1.24\n", nil},
-		{"single line", "module m\nrequire example.com/a v1.0.0\n", []string{"example.com/a"}},
-		{"block skips indirect", "module m\nrequire (\n\texample.com/a v1.0.0\n\texample.com/b v1.2.0 // indirect\n)\n", []string{"example.com/a"}},
-		{"single line indirect", "module m\nrequire example.com/b v1.0.0 // indirect\n", nil},
-		{"comment in block", "require (\n\t// pinned for X\n\texample.com/c v0.1.0\n)\n", []string{"example.com/c"}},
+		{"unused indirect stays indirect", []string{"fmt"}, []string{"example.com/a"}},
+		{"used indirect becomes direct", []string{"example.com/b/pkg"}, []string{"example.com/a", "example.com/b"}},
+		{"longest module path wins", []string{"example.com/c/v2/x"}, []string{"example.com/a", "example.com/c/v2"}},
+		{"prefix look-alike is not the module", []string{"example.com/bb"}, []string{"example.com/a"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := directRequires([]byte(tt.gomod)); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("directRequires() = %q, want %q", got, tt.want)
+			if got := directModules(reqs, tt.imports); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("directModules() = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -108,7 +113,6 @@ func TestCheckWorkflow(t *testing.T) {
 	}{
 		{"sha pinned", "    - uses: actions/checkout" + sha + " # v7.0.1\n", ""},
 		{"local action", "    - uses: ./.github/actions/x\n", ""},
-		{"docker image", "    - uses: docker://alpine:3\n", ""},
 		{"tag pinned", "    - uses: actions/checkout@v7\n", "not pinned by commit SHA"},
 		{"quoted branch", "      uses: 'evil/action@main'\n", "not pinned by commit SHA"},
 		{"short sha", "    - uses: actions/checkout@3d3c42e\n", "not pinned by commit SHA"},
@@ -118,6 +122,15 @@ func TestCheckWorkflow(t *testing.T) {
 		{"quoted sha pinned", `    - uses: "actions/checkout` + sha + `"` + "\n", ""},
 		{"reusable workflow by tag", "    uses: org/repo/.github/workflows/w.yml@v1\n", "not pinned by commit SHA"},
 		{"quoted pull_request_target key", "on:\n  \"pull_request_target\":\n", "pull_request_target is forbidden"},
+		{"flow style tag", "    - {name: x, uses: actions/checkout@v1}\n", "not pinned by commit SHA"},
+		{"flow style sha pinned", "    - {uses: actions/checkout" + sha + "}\n", ""},
+		{"double quoted key", `    - "uses": actions/checkout@v1` + "\n", "not pinned by commit SHA"},
+		{"single quoted key and value", "    - 'uses': 'actions/checkout@main'\n", "not pinned by commit SHA"},
+		{"docker tag", "    - uses: docker://alpine:3\n", "not pinned by @sha256 digest"},
+		{"docker digest", "    - uses: docker://alpine@sha256:" + strings.Repeat("a", 64) + "\n", ""},
+		{"block scalar value", "    - uses: >-\n", "not pinned by commit SHA"},
+		{"hex escaped trigger", `on: ["pull\x5frequest_target"]` + "\n", "pull_request_target is forbidden"},
+		{"unicode escaped trigger", "on:\n  \"pull_request\\" + "u005Ftarget\":\n", "pull_request_target is forbidden"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

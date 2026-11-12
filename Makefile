@@ -14,7 +14,7 @@ EXE := .exe
 endif
 BIN := bin/creep$(EXE)
 
-.PHONY: build test check fmt-check vet budget clean
+.PHONY: build test check fmt-check tidy vet budget clean
 
 # VERSION and COMMIT reach the recipe through the environment, never as shell
 # text, and are filtered to SAFE_CHARS before use.
@@ -28,7 +28,7 @@ build:
 test:
 	go test $(PKG)
 
-check: fmt-check vet budget
+check: fmt-check tidy vet budget
 	@# -race needs cgo; Go disables cgo when no C compiler is found (common on Windows).
 	@if [ "$$(go env CGO_ENABLED)" = "1" ]; then \
 		echo "go test -race ./..."; go test -race ./...; \
@@ -39,10 +39,16 @@ check: fmt-check vet budget
 fmt-check:
 	@out="$$(gofmt -l .)"; if [ -n "$$out" ]; then echo "gofmt needed on:"; echo "$$out"; exit 1; fi
 
+# Fails when go.mod or go.sum differ from what go mod tidy would write, so a
+# used dependency cannot hide behind a stale // indirect comment.
+tidy:
+	go mod tidy -diff
+
 vet:
 	go vet ./...
 
-# Dependency allowlist, module and binary caps, file length, workflow pinning.
+# Dependency allowlist, network/exec import rules, module and binary caps,
+# file length, workflow pinning.
 budget:
 	go run ./internal/tools/budget
 

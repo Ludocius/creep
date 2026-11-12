@@ -8,41 +8,10 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+	"unicode"
 )
-
-// directRequires returns the module paths required directly by go.mod,
-// skipping requirements marked `// indirect`.
-func directRequires(gomod []byte) []string {
-	var mods []string
-	inBlock := false
-	sc := bufio.NewScanner(bytes.NewReader(gomod))
-	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
-		switch {
-		case line == "require (":
-			inBlock = true
-		case inBlock && line == ")":
-			inBlock = false
-		case inBlock:
-			mods = appendDirect(mods, line)
-		case strings.HasPrefix(line, "require "):
-			mods = appendDirect(mods, strings.TrimPrefix(line, "require "))
-		}
-	}
-	return mods
-}
-
-func appendDirect(mods []string, req string) []string {
-	if strings.Contains(req, "// indirect") {
-		return mods
-	}
-	fields := strings.Fields(req)
-	if len(fields) < 2 || strings.HasPrefix(fields[0], "//") {
-		return mods
-	}
-	return append(mods, fields[0])
-}
 
 // parseAllowlist reads "module docs/adr/NNNN-name.md" lines; '#' starts a comment.
 func parseAllowlist(data []byte) (map[string]string, error) {
@@ -114,27 +83,56 @@ func checkFileLines(fsys fs.FS, maxLines int) ([]string, error) {
 }
 
 var (
-	usesLine  = regexp.MustCompile(`^\s*-?\s*uses:\s*["']?([^\s"'#]+)`)
+	// usesKey finds `uses:` in block or flow style, with or without quoted
+	// keys, and captures the value up to whitespace, a quote, ',' or '}'.
+	usesKey   = regexp.MustCompile(`(?:^|[\s{,\-])["']?uses["']?\s*:\s*["']?([^\s"',}#]*)`)
 	shaPinned = regexp.MustCompile(`@[0-9a-f]{40}$`)
+	digestPin = regexp.MustCompile(`@sha256:[0-9a-f]{64}$`)
+	// yamlEscape matches YAML double-quoted escapes a trigger name could hide behind.
+	yamlEscape = regexp.MustCompile(`\\(?:x[0-9A-Fa-f]{2}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})`)
 )
 
-// checkWorkflow reports pull_request_target triggers and actions not pinned by commit SHA.
+// checkWorkflow reports pull_request_target triggers and actions or images not
+// pinned immutably. It is a fast local backstop; zizmor in CI is the authority.
 func checkWorkflow(name string, data []byte) []string {
 	var problems []string
 	for i, line := range strings.Split(string(data), "\n") {
 		code, _, _ := strings.Cut(line, "#")
-		if strings.Contains(code, "pull_request_target") {
+		if strings.Contains(unescapeYAML(code), "pull_request_target") {
 			problems = append(problems, fmt.Sprintf("%s:%d: pull_request_target is forbidden", name, i+1))
 		}
-		m := usesLine.FindStringSubmatch(code)
-		if m == nil || strings.HasPrefix(m[1], "./") || strings.HasPrefix(m[1], "docker://") {
-			continue
-		}
-		if !shaPinned.MatchString(m[1]) {
-			problems = append(problems, fmt.Sprintf("%s:%d: %s is not pinned by commit SHA", name, i+1, m[1]))
+		for _, m := range usesKey.FindAllStringSubmatch(code, -1) {
+			if why := unpinned(m[1]); why != "" {
+				problems = append(problems, fmt.Sprintf("%s:%d: %s %s", name, i+1, m[1], why))
+			}
 		}
 	}
 	return problems
+}
+
+func unpinned(ref string) string {
+	switch {
+	case strings.HasPrefix(ref, "./"):
+		return ""
+	case strings.HasPrefix(ref, "docker://"):
+		if digestPin.MatchString(ref) {
+			return ""
+		}
+		return "is not pinned by @sha256 digest"
+	case shaPinned.MatchString(ref):
+		return ""
+	}
+	return "is not pinned by commit SHA"
+}
+
+func unescapeYAML(s string) string {
+	return yamlEscape.ReplaceAllStringFunc(s, func(esc string) string {
+		r, err := strconv.ParseUint(esc[2:], 16, 32)
+		if err != nil || r > unicode.MaxRune {
+			return esc
+		}
+		return string(rune(r))
+	})
 }
 
 // isADRPath accepts only clean slash paths inside docs/adr/, so an allowlist

@@ -5,9 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
+	"strings"
 )
 
 // Caps are explained in the PR that introduced them (#18): the module graph
@@ -21,6 +24,7 @@ const (
 )
 
 type config struct {
+	root         string
 	allowlist    string
 	maxModules   int
 	maxBinaryMiB int
@@ -28,7 +32,7 @@ type config struct {
 }
 
 func main() {
-	cfg := config{}
+	cfg := config{root: "."}
 	flag.StringVar(&cfg.allowlist, "allowlist", "docs/adr/dependencies.txt", "direct dependency allowlist")
 	flag.IntVar(&cfg.maxModules, "max-modules", defaultMaxModules, "cap on `go list -m all` entries")
 	flag.IntVar(&cfg.maxBinaryMiB, "max-binary-mib", defaultMaxBinaryMiB, "cap on the stripped linux/amd64 binary")
@@ -55,7 +59,7 @@ func run(cfg config, out io.Writer) int {
 
 func collect(cfg config) ([]string, error) {
 	var problems []string
-	steps := []func(config) ([]string, error){depProblems, moduleProblems, binaryProblems, lineProblems, workflowProblems}
+	steps := []func(config) ([]string, error){depProblems, importProblems, netReachProblems, moduleProblems, binaryProblems, lineProblems, workflowProblems}
 	for _, step := range steps {
 		p, err := step(cfg)
 		if err != nil {
@@ -67,11 +71,15 @@ func collect(cfg config) ([]string, error) {
 }
 
 func depProblems(cfg config) ([]string, error) {
-	gomod, err := os.ReadFile("go.mod")
+	mf, err := readModFile(cfg.root)
 	if err != nil {
-		return nil, fmt.Errorf("read go.mod: %w", err)
+		return nil, err
 	}
-	data, err := os.ReadFile(cfg.allowlist)
+	files, err := collectSources(os.DirFS(cfg.root), mf.Module.Path)
+	if err != nil {
+		return nil, fmt.Errorf("scan imports: %w", err)
+	}
+	data, err := os.ReadFile(filepath.Join(cfg.root, cfg.allowlist))
 	if err != nil {
 		return nil, fmt.Errorf("read allowlist: %w", err)
 	}
@@ -79,7 +87,50 @@ func depProblems(cfg config) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", cfg.allowlist, err)
 	}
-	return checkDeps(directRequires(gomod), allow, fileExists), nil
+	exists := func(p string) bool { return fileExists(filepath.Join(cfg.root, filepath.FromSlash(p))) }
+	return checkDeps(directModules(mf.Require, allImports(files)), allow, exists), nil
+}
+
+func importProblems(cfg config) ([]string, error) {
+	mf, err := readModFile(cfg.root)
+	if err != nil {
+		return nil, err
+	}
+	files, err := collectSources(os.DirFS(cfg.root), mf.Module.Path)
+	if err != nil {
+		return nil, fmt.Errorf("scan imports: %w", err)
+	}
+	return checkImports(mf.Module.Path, files), nil
+}
+
+func netReachProblems(cfg config) ([]string, error) {
+	mf, err := readModFile(cfg.root)
+	if err != nil {
+		return nil, err
+	}
+	out, err := goOutput(cfg.root, "list", "-deps", "-test", "-json", "./...")
+	if err != nil {
+		return nil, err
+	}
+	pkgs, err := decodePackages(out)
+	if err != nil {
+		return nil, err
+	}
+	return checkNetReach(mf.Module.Path, pkgs), nil
+}
+
+// goOutput runs the go command in dir and returns stdout; on failure the
+// error carries stderr, which is where go explains what went wrong.
+func goOutput(dir string, args ...string) ([]byte, error) {
+	cmd := exec.Command("go", args...) //nolint:gosec // G204: callers pass fixed go subcommands, never user input
+	cmd.Dir = dir
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("go %s: %w\n%s", strings.Join(args, " "), err, bytes.TrimSpace(stderr.Bytes()))
+	}
+	return out, nil
 }
 
 func fileExists(path string) bool {
@@ -88,9 +139,9 @@ func fileExists(path string) bool {
 }
 
 func moduleProblems(cfg config) ([]string, error) {
-	out, err := exec.Command("go", "list", "-m", "all").Output()
+	out, err := goOutput(cfg.root, "list", "-m", "all")
 	if err != nil {
-		return nil, fmt.Errorf("go list -m all: %w", err)
+		return nil, err
 	}
 	n := bytes.Count(bytes.TrimSpace(out), []byte("\n")) + 1
 	return checkCap("module graph", int64(n), int64(cfg.maxModules), "modules"), nil
@@ -120,18 +171,35 @@ func lineProblems(cfg config) ([]string, error) {
 	return checkFileLines(os.DirFS("."), cfg.maxLines)
 }
 
-func workflowProblems(_ config) ([]string, error) {
-	files, err := filepath.Glob(filepath.Join(".github", "workflows", "*.y*ml"))
-	if err != nil {
-		return nil, fmt.Errorf("list workflows: %w", err)
-	}
+// workflowProblems checks workflows and composite actions (action.yml) anywhere in the repo.
+func workflowProblems(cfg config) ([]string, error) {
+	fsys := os.DirFS(cfg.root)
 	var problems []string
-	for _, f := range files {
-		data, err := os.ReadFile(f)
+	err := fs.WalkDir(fsys, ".", func(name string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", f, err)
+			return err
 		}
-		problems = append(problems, checkWorkflow(filepath.ToSlash(f), data)...)
+		if d.IsDir() && name != "." && d.Name() != ".github" && skippedDirs[d.Name()] {
+			return fs.SkipDir
+		}
+		if d.IsDir() || !isWorkflowFile(name) {
+			return nil
+		}
+		data, err := fs.ReadFile(fsys, name)
+		if err != nil {
+			return err
+		}
+		problems = append(problems, checkWorkflow(name, data)...)
+		return nil
+	})
+	return problems, err
+}
+
+func isWorkflowFile(name string) bool {
+	base := path.Base(name)
+	if base == "action.yml" || base == "action.yaml" {
+		return true
 	}
-	return problems, nil
+	ext := path.Ext(name)
+	return path.Dir(name) == ".github/workflows" && (ext == ".yml" || ext == ".yaml")
 }
