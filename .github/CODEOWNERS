@@ -18,3 +18,12 @@
 /docs/adr/               @Ludocius
 /go.mod                  @Ludocius
 /go.sum                  @Ludocius
+/.github/CODEOWNERS      @Ludocius
+/.github/actionlint.yaml @Ludocius
+/zizmor.yml              @Ludocius
+/.github/zizmor.yml      @Ludocius
+/.gitleaks.toml          @Ludocius
+/.gitleaksignore         @Ludocius
+/go.work                 @Ludocius
+/go.work.sum             @Ludocius
+/vendor/                 @Ludocius
