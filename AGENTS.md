@@ -45,9 +45,10 @@ go test ./... -failfast           # tests replay recorded model responses; no ke
 
 ## Current state
 
-- Merged: —
-- Next: #1 base CLI → #18 CI → then dependency order in the Roadmap project (Priority P0 first)
-- Windows dev: Go 1.27 and make via winget; tests must pass on Windows and Linux.
+- Merged: #1 base CLI (`internal/cli`, `internal/exitcode`, `internal/buildinfo`). Unimplemented commands fail closed (exit 2).
+- Next: #18 CI → #39 rulesets → #20 → #4 → #2 → #3 → #8 → #5 → #6 → #7 → #16 → #9 → #10 → #14 → #11 → #12 → #13 → #15 → #17 → #19. Follow-up: #41.
+- Review lessons: never exit 0 on unimplemented paths; open files without blocking (FIFO); escape every printed error.
+- Windows dev: Go 1.27 and make via winget (no cgo, so `-race` runs only on Linux). Linux check: `docker run --rm -v "$PWD:/src" -w /src golang:1.24 go test -race ./...`.
 
 ## Do not read
 
