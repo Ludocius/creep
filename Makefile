@@ -14,7 +14,7 @@ EXE := .exe
 endif
 BIN := bin/creep$(EXE)
 
-.PHONY: build test check fmt-check vet clean
+.PHONY: build test check fmt-check vet budget clean
 
 # VERSION and COMMIT reach the recipe through the environment, never as shell
 # text, and are filtered to SAFE_CHARS before use.
@@ -28,7 +28,7 @@ build:
 test:
 	go test $(PKG)
 
-check: fmt-check vet
+check: fmt-check vet budget
 	@# -race needs cgo; Go disables cgo when no C compiler is found (common on Windows).
 	@if [ "$$(go env CGO_ENABLED)" = "1" ]; then \
 		echo "go test -race ./..."; go test -race ./...; \
@@ -41,6 +41,10 @@ fmt-check:
 
 vet:
 	go vet ./...
+
+# Dependency allowlist, module and binary caps, file length, workflow pinning.
+budget:
+	go run ./internal/tools/budget
 
 clean:
 	rm -f bin/creep bin/creep.exe coverage.out

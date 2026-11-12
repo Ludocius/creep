@@ -1,0 +1,52 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - depguard
+    - errcheck
+    - govet
+    - gosec
+    - ineffassign
+    - misspell
+    - staticcheck
+    - unused
+  settings:
+    depguard:
+      rules:
+        # AGENTS.md invariant 1: only internal/gateway may touch the network.
+        # Matching is by prefix, so "net" also covers net/http, net/url and
+        # every other net/* package.
+        network-only-in-gateway:
+          list-mode: lax
+          files:
+            - "$all"
+            - "!**/internal/gateway/**"
+          deny:
+            - pkg: "net"
+              desc: "network access lives only in internal/gateway (AGENTS.md invariant 1)"
+    gosec:
+      excludes:
+        # G304 (file path from a variable): creep reads files the user points
+        # it at by design: its own --config and the repository being scanned.
+        - G304
+        # G104 duplicates errcheck, which owns unchecked errors.
+        - G104
+    misspell:
+      locale: US
+  exclusions:
+    presets:
+      # Unchecked Close/Fprint*/RemoveAll on best-effort paths.
+      - std-error-handling
+    rules:
+      # Tests build and run the binary on purpose.
+      - path: _test\.go
+        linters: [gosec]
+        text: "G204|G702"
+
+formatters:
+  enable:
+    - gofmt

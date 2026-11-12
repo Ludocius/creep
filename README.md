@@ -7,6 +7,9 @@
 
 [![v0.1 progress](https://img.shields.io/github/milestones/progress-percent/Ludocius/creep/1?label=v0.1)](https://github.com/Ludocius/creep/milestone/1)
 [![Open issues](https://img.shields.io/github/issues/Ludocius/creep)](https://github.com/Ludocius/creep/issues)
+[![CI](https://github.com/Ludocius/creep/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Ludocius/creep/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Ludocius/creep/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/Ludocius/creep/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Ludocius/creep/badge)](https://scorecard.dev/viewer/?uri=github.com/Ludocius/creep)
 [![Go Reference](https://pkg.go.dev/badge/github.com/Ludocius/creep.svg)](https://pkg.go.dev/github.com/Ludocius/creep)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 ![Status](https://img.shields.io/badge/status-pre--alpha-orange)

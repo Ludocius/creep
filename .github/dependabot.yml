@@ -1,0 +1,22 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    # Let new releases age a week so a compromised version is likely yanked first.
+    cooldown:
+      default-days: 7
+    labels: [type/chore, area/ci]
+    commit-message:
+      prefix: "build(deps)"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    labels: [type/chore, area/ci]
+    commit-message:
+      prefix: "ci(deps)"
