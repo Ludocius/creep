@@ -40,6 +40,8 @@ func TestParseAllowlist(t *testing.T) {
 		{"missing adr", "example.com/a\n", nil, true},
 		{"adr outside docs/adr", "example.com/a README.md\n", nil, true},
 		{"adr path escapes", "example.com/a docs/adr/../../go.mod\n", nil, true},
+		{"adr path with backslashes", `example.com/a docs/adr/x\..\..\go.mod` + "\n", nil, true},
+		{"extra field", "example.com/a docs/adr/0001-a.md extra\n", nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -113,6 +115,9 @@ func TestCheckWorkflow(t *testing.T) {
 		{"pull_request_target", "on:\n  pull_request_target:\n", "pull_request_target is forbidden"},
 		{"pull_request_target in list", "on: [push, pull_request_target]\n", "pull_request_target is forbidden"},
 		{"mentioned in comment", "# never use pull_request_target\n", ""},
+		{"quoted sha pinned", `    - uses: "actions/checkout` + sha + `"` + "\n", ""},
+		{"reusable workflow by tag", "    uses: org/repo/.github/workflows/w.yml@v1\n", "not pinned by commit SHA"},
+		{"quoted pull_request_target key", "on:\n  \"pull_request_target\":\n", "pull_request_target is forbidden"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
