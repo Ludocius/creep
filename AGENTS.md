@@ -34,6 +34,21 @@ go test ./... -failfast           # tests replay recorded model responses; no ke
 - Prompts live in `prompts/` as versioned data, one variant per model tier, with a token-budget test.
 - Commits: Conventional Commits, signed, with `Signed-off-by` (`git commit -s`).
 
+## Workflow (spec-driven)
+
+- **The GitHub issue is the spec**: context, scope, acceptance criteria. If the spec changes, edit the issue — do not add new `.md` files.
+- Per feature, three independent agents with no shared context: **developer → tester → pentester**. Maximum 3 cycles; the next developer receives only the findings.
+- Merge (squash) only when GitHub checks are green **and** the pentester approves. One feature at a time.
+- Branch `feat/<issue>-<slug>`; PR body `Closes #N`; labels from the issue.
+- ADR only when a change adds a dependency or alters a public contract.
+- After each merge, update **Current state** below (max 10 lines).
+
+## Current state
+
+- Merged: —
+- Next: #1 base CLI → #18 CI → then dependency order in the Roadmap project (Priority P0 first)
+- Windows dev: Go 1.27 and make via winget; tests must pass on Windows and Linux.
+
 ## Do not read
 
 `testdata/replay/`, `bin/`, `dist/` — large generated data.
