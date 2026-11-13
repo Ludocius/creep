@@ -175,3 +175,119 @@ func TestProjectCannotChooseWhereCodeGoes(t *testing.T) {
 		}
 	}
 }
+
+// Protection tests for issue #61: the built-in gates are the floor for the
+// project file, with and without a policy.
+
+func TestProjectCannotLoosenBuiltInGates(t *testing.T) {
+	policies := map[string]string{
+		"no policy":           "",
+		"policy, no limits":   "locked: [log.level]\n",
+		"policy, loose limit": "limits:\n  gates:\n    pr: verified:critical\n    nightly: none\n",
+	}
+	tests := []struct {
+		name    string
+		project string
+		wantErr string
+	}{
+		{"pr disabled", "gates:\n  pr: none\n", `project "creep.yaml": gates.pr "none" is looser than the built-in floor "probable:critical" set by default`},
+		{"pr looser status", "gates:\n  pr: verified:critical\n", `gates.pr "verified:critical" is looser than the built-in floor "probable:critical"`},
+		{"pr looser status and stricter severity", "gates:\n  pr: verified:info\n", `gates.pr "verified:info" is looser than the built-in floor`},
+		{"nightly disabled", "gates:\n  nightly: none\n", `project "creep.yaml": gates.nightly "none" is looser than the built-in floor "verified:high" set by default`},
+		{"nightly looser severity", "gates:\n  nightly: verified:critical\n", `gates.nightly "verified:critical" is looser than the built-in floor "verified:high"`},
+		{"nightly stricter status looser severity", "gates:\n  nightly: probable:critical\n", `gates.nightly "probable:critical" is looser`},
+		{"equal to floor", "gates:\n  pr: probable:critical\n  nightly: verified:high\n", ""},
+		{"stricter", "gates:\n  pr: probable:high\n  nightly: probable:medium\n", ""},
+	}
+	for pname, policy := range policies {
+		for _, tt := range tests {
+			t.Run(pname+"/"+tt.name, func(t *testing.T) {
+				in := Inputs{Project: file("creep.yaml", tt.project)}
+				if policy != "" {
+					in.Policy = file("org.yaml", policy)
+				}
+				_, err := Load(in)
+				if tt.wantErr == "" {
+					if err != nil {
+						t.Fatalf("unexpected error: %v", err)
+					}
+					return
+				}
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("err = %v, want containing %q", err, tt.wantErr)
+				}
+			})
+		}
+	}
+}
+
+// TestProjectGateFloorIsStricterOfLimitAndDefault: a policy limit stricter
+// than the default is the floor reported to the project file.
+func TestProjectGateFloorIsStricterOfLimitAndDefault(t *testing.T) {
+	policy := file("org.yaml", "limits:\n  gates:\n    pr: probable:high\n")
+	_, err := Load(Inputs{Policy: policy, Project: file("creep.yaml", "gates:\n  pr: none\n")})
+	want := `project "creep.yaml": gates.pr "none" is looser than the limit "probable:high" set by policy "org.yaml"`
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("err = %v, want containing %q", err, want)
+	}
+}
+
+// TestProjectLooseGateRejectedEvenIfFlagOverrides: the project value is
+// judged at its own layer, not only as the final value.
+func TestProjectLooseGateRejectedEvenIfFlagOverrides(t *testing.T) {
+	_, err := Load(Inputs{
+		Project: file("creep.yaml", "gates:\n  pr: none\n"),
+		Flags:   []Flag{{Name: "--gate", Key: "gates.pr", Value: "probable:low"}},
+	})
+	if err == nil || !strings.Contains(err.Error(), `project "creep.yaml"`) {
+		t.Fatalf("err = %v, want project gate rejected", err)
+	}
+}
+
+// TestOperatorLayersMayLoosenGates: only the project file has the floor.
+func TestOperatorLayersMayLoosenGates(t *testing.T) {
+	loose := "gates:\n  pr: none\n  nightly: none\n"
+	tests := []struct {
+		name string
+		in   Inputs
+		src  string
+	}{
+		{"user", Inputs{User: file("u", loose)}, `user "u"`},
+		{"--config", Inputs{Explicit: file("ci.yaml", loose)}, `--config "ci.yaml"`},
+		{"policy defaults", Inputs{Policy: file("org.yaml", "defaults:\n  gates:\n    pr: none\n    nightly: none\n")}, `policy "org.yaml"`},
+		{"flag", Inputs{Flags: []Flag{{Name: "--gate", Key: "gates.pr", Value: "none"}, {Name: "--nightly-gate", Key: "gates.nightly", Value: "none"}}}, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, err := Load(tt.in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if r.Config.Gates.PR != "none" || r.Config.Gates.Nightly != "none" {
+				t.Errorf("gates = %+v, want none", r.Config.Gates)
+			}
+			if tt.src != "" && sourceOf(t, r, "gates.pr") != tt.src {
+				t.Errorf("source = %s, want %s", sourceOf(t, r, "gates.pr"), tt.src)
+			}
+		})
+	}
+}
+
+// TestStricterProjectGatesExplainProject covers criterion 3.
+func TestStricterProjectGatesExplainProject(t *testing.T) {
+	r, err := Load(Inputs{
+		User:    file("u", "gates:\n  pr: none\n"),
+		Project: file("creep.yaml", "gates:\n  pr: probable:low\n  nightly: probable:high\n"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for key, want := range map[string]string{"gates.pr": "probable:low", "gates.nightly": "probable:high"} {
+		if got := field(&r.Config, key).String(); got != want {
+			t.Errorf("%s = %q, want %q", key, got, want)
+		}
+		if src := sourceOf(t, r, key); src != `project "creep.yaml"` {
+			t.Errorf("source of %s = %s, want project", key, src)
+		}
+	}
+}

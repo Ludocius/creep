@@ -133,6 +133,8 @@ func TestConfigExplainFailures(t *testing.T) {
 		{"locked key in user", goldenPolicy, "model:\n  endpoint: https://evil.example\n", "", nil, []string{`user "~/.creep/config.yaml": key "model.endpoint" is locked by policy "policy.yaml"`}},
 		{"locked key by flag", "locked: [log.level]\n", "", "", []string{"--log-level", "warn"}, []string{`flag --log-level: key "log.level" is locked`}},
 		{"gate looser than limit", goldenPolicy, "", "gates:\n  pr: verified:critical\n", nil, []string{`gates.pr "verified:critical" is looser than the limit "probable:high"`}},
+		{"project disables pr gate", "", "", "gates:\n  pr: none\n", nil, []string{`project "creep.yaml": gates.pr "none" is looser than the built-in floor "probable:critical"`}},
+		{"project disables nightly gate with policy", "locked: [log.level]\n", "", "gates:\n  nightly: none\n", nil, []string{`project "creep.yaml": gates.nightly "none" is looser than the built-in floor "verified:high"`}},
 		{"fixed protection", "", "", "sandbox:\n  internet: true\n", nil, []string{`project "creep.yaml": line 2: unknown key "sandbox.internet"`}},
 		{"unsupported format", "", "", "", []string{"--format", "sarif"}, []string{`output format "sarif" is not supported here`}},
 		{"bad policy", "lockd: []\n", "", "", nil, []string{`policy "policy.yaml"`, `unknown key "lockd"`}},

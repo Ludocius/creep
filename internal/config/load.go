@@ -142,7 +142,13 @@ func (s *state) applyFile(l layer) error {
 			return fmt.Errorf("%s: key %q cannot be set in the project file, because the scanned repository must not choose where its code is sent; set it in the user file, --config or policy", src, k)
 		}
 	}
-	return s.merge(&c, keys, src)
+	if err := s.merge(&c, keys, src); err != nil {
+		return err
+	}
+	if !l.project {
+		return nil
+	}
+	return s.checkProjectGates(keys, src)
 }
 
 func (s *state) applyFlags(flags []Flag) error {
@@ -186,15 +192,54 @@ func (s *state) checkLimits() error {
 		{"gates.nightly", s.limits.Gates.Nightly},
 	}
 	for _, l := range limits {
-		if l.limit == "" {
-			continue
-		}
-		limit, _ := parseGate(l.limit) // checked in checkPolicy
 		value := field(&s.Config, l.key).String()
-		g, _ := parseGate(value) // checked in merge, or a valid default
-		if !g.atLeastAsStrict(limit) {
-			return fmt.Errorf("%s: %s %q is looser than the limit %q set by %s", s.sources[l.key], l.key, value, l.limit, s.limSrc)
+		if err := checkFloor(l.key, value, l.limit, "the limit", s.limSrc); err != nil {
+			return fmt.Errorf("%s: %w", s.sources[l.key], err)
 		}
 	}
 	return nil
+}
+
+// checkProjectGates rejects a project gate looser than its floor: the policy
+// limit if any, then the built-in default. The project file comes from the
+// repository being scanned, so a pull request must not disable the gate that
+// judges it; operator layers (user, --config, flags, policy) may still loosen.
+func (s *state) checkProjectGates(keys []string, src string) error {
+	for _, k := range keys {
+		if k != "gates.pr" && k != "gates.nightly" {
+			continue
+		}
+		if err := s.checkProjectGate(k); err != nil {
+			return fmt.Errorf("%s: %w", src, err)
+		}
+	}
+	return nil
+}
+
+// checkProjectGate checks one project gate against both floors and, when both
+// are violated, names the stricter one so the message shows what would pass.
+func (s *state) checkProjectGate(key string) error {
+	limits, defaults := Config{Gates: s.limits.Gates}, Defaults()
+	value := field(&s.Config, key).String()
+	limit, builtin := field(&limits, key).String(), field(&defaults, key).String()
+	limitErr := checkFloor(key, value, limit, "the limit", s.limSrc)
+	builtinErr := checkFloor(key, value, builtin, "the built-in floor", "default")
+	if builtinErr != nil && (limitErr == nil || checkFloor(key, limit, builtin, "", "") != nil) {
+		return fmt.Errorf("%w; the project file may only make gates stricter, set a looser gate in the user file, --config or a flag", builtinErr)
+	}
+	return limitErr
+}
+
+// checkFloor reports an error when value is looser than floor; an empty floor
+// (no policy limit) always passes.
+func checkFloor(key, value, floor, what, by string) error {
+	if floor == "" {
+		return nil
+	}
+	f, _ := parseGate(floor) // checked in checkPolicy, or a valid default
+	g, _ := parseGate(value) // checked in merge
+	if g.atLeastAsStrict(f) {
+		return nil
+	}
+	return fmt.Errorf("%s %q is looser than %s %q set by %s", key, value, what, floor, by)
 }
