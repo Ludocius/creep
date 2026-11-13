@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"testing"
 )
@@ -20,7 +21,7 @@ func newBudget(t *testing.T, opts BudgetOptions) *Budget {
 // roomyBudget never limits the tests that are not about the budget.
 func roomyBudget(t *testing.T) *Budget {
 	t.Helper()
-	return newBudget(t, BudgetOptions{MaxTokens: 1 << 40, MaxCalls: 1 << 20})
+	return newBudget(t, BudgetOptions{MaxTokens: maxBudgetLimit, MaxCalls: maxBudgetLimit})
 }
 
 func openBudgetLog(t *testing.T, dir string, b *Budget) *EgressLog {
@@ -126,6 +127,10 @@ func TestNewBudgetRejects(t *testing.T) {
 		{MaxTokens: 1},
 		{MaxTokens: 1, MaxCalls: 1, EndpointMaxTokens: -1},
 		{MaxTokens: 1, MaxCalls: 1, MaxConcurrency: -1},
+		{MaxTokens: math.MaxInt, MaxCalls: 1},
+		{MaxTokens: 1, MaxCalls: maxBudgetLimit + 1},
+		{MaxTokens: 1, MaxCalls: 1, EndpointMaxTokens: maxBudgetLimit + 1},
+		{MaxTokens: 1, MaxCalls: 1, MaxConcurrency: maxBudgetLimit + 1},
 	} {
 		if _, err := NewBudget(opts); err == nil {
 			t.Errorf("NewBudget(%+v) succeeded", opts)

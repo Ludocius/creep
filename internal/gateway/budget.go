@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/url"
 	"sync"
 )
@@ -43,12 +44,18 @@ func (e *BudgetError) Error() string {
 
 func (e *BudgetError) Unwrap() error { return ErrBudgetExhausted }
 
+// maxBudgetLimit caps every BudgetOptions limit. With limits and per-call
+// charges at most 2^31-1, the int64 counters stay below 2^62 even when every
+// call of a run is in flight and reports the maximum, so no sum overflows.
+const maxBudgetLimit = math.MaxInt32
+
 // BudgetOptions configures NewBudget. MaxTokens and MaxCalls come from the
-// resolved config (budget.max_tokens, budget.max_calls), which the project
-// file cannot raise.
+// resolved config (budget.max_tokens, budget.max_calls). Until #62 lands
+// the project file can still set those keys, so a scanned repository can
+// raise them; the gateway enforces whatever the caller passes.
 type BudgetOptions struct {
-	MaxTokens         int // per run; required
-	MaxCalls          int // per run; required
+	MaxTokens         int // per run; required, at most 2^31-1
+	MaxCalls          int // per run; required, at most 2^31-1
 	EndpointMaxTokens int // per endpoint origin; 0 means only the run limit
 	MaxConcurrency    int // AIMD ceiling per endpoint origin; 0 means 4
 }
@@ -63,21 +70,26 @@ type BudgetOptions struct {
 type Budget struct {
 	mu          sync.Mutex
 	opts        BudgetOptions
-	tokens      int            // spent or reserved in this run
-	calls       int            // started in this run
-	endpoint    map[string]int // tokens spent or reserved per origin
+	tokens      int64            // spent or reserved in this run
+	calls       int64            // started in this run
+	endpoint    map[string]int64 // tokens spent or reserved per origin
 	concurrency map[string]*aimd
 }
 
 // NewBudget validates opts.
 func NewBudget(opts BudgetOptions) (*Budget, error) {
-	if opts.MaxTokens <= 0 || opts.MaxCalls <= 0 || opts.EndpointMaxTokens < 0 || opts.MaxConcurrency < 0 {
-		return nil, errors.New("gateway budget: MaxTokens and MaxCalls must be positive, the rest not negative")
+	if !inRange(opts.MaxTokens, 1) || !inRange(opts.MaxCalls, 1) ||
+		!inRange(opts.EndpointMaxTokens, 0) || !inRange(opts.MaxConcurrency, 0) {
+		return nil, fmt.Errorf("gateway budget: MaxTokens and MaxCalls must be 1-%d, the rest 0-%d", maxBudgetLimit, maxBudgetLimit)
 	}
 	if opts.MaxConcurrency == 0 {
 		opts.MaxConcurrency = defaultMaxConcurrency
 	}
-	return &Budget{opts: opts, endpoint: map[string]int{}, concurrency: map[string]*aimd{}}, nil
+	return &Budget{opts: opts, endpoint: map[string]int64{}, concurrency: map[string]*aimd{}}, nil
+}
+
+func inRange(v, lowest int) bool {
+	return v >= lowest && v <= maxBudgetLimit
 }
 
 // ticket is one admitted call: its reservation and its concurrency slot.
@@ -117,16 +129,16 @@ func (b *Budget) reserve(key string, n int) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	switch {
-	case b.calls >= b.opts.MaxCalls:
+	case b.calls >= int64(b.opts.MaxCalls):
 		return &BudgetError{Endpoint: key, Limit: LimitRunCalls}
-	case n > b.opts.MaxTokens-b.tokens:
+	case int64(n) > int64(b.opts.MaxTokens)-b.tokens:
 		return &BudgetError{Endpoint: key, Limit: LimitRunTokens}
-	case b.opts.EndpointMaxTokens > 0 && n > b.opts.EndpointMaxTokens-b.endpoint[key]:
+	case b.opts.EndpointMaxTokens > 0 && int64(n) > int64(b.opts.EndpointMaxTokens)-b.endpoint[key]:
 		return &BudgetError{Endpoint: key, Limit: LimitEndpointTokens}
 	}
 	b.calls++
-	b.tokens += n
-	b.endpoint[key] += n
+	b.tokens += int64(n)
+	b.endpoint[key] += int64(n)
 	return nil
 }
 
@@ -135,8 +147,8 @@ func (b *Budget) refund(key string, n int) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.calls--
-	b.tokens -= n
-	b.endpoint[key] -= n
+	b.tokens -= int64(n)
+	b.endpoint[key] -= int64(n)
 }
 
 // settle replaces a reservation with the tokens the provider reported. A
@@ -147,13 +159,14 @@ func (b *Budget) settle(key string, reserved int, used *Usage) {
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	delta := spentTokens(*used, b.opts.MaxTokens) - reserved
+	delta := int64(spentTokens(*used, b.opts.MaxTokens) - reserved)
 	b.tokens += delta
 	b.endpoint[key] += delta
 }
 
 // spentTokens adds a reported usage, capped at limit so a huge report
-// cannot overflow the counters; the cap alone exhausts the run.
+// cannot overflow the counters (see maxBudgetLimit); the cap alone exhausts
+// the run.
 func spentTokens(u Usage, limit int) int {
 	if u.InputTokens >= limit || u.OutputTokens >= limit-u.InputTokens {
 		return limit
