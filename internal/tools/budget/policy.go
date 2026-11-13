@@ -3,8 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -15,6 +19,11 @@ const agentLoop = "developer → tester → pentester → auditor"
 // docsOnlyRule is the one sanctioned shortcut, kept narrow so it cannot cover code.
 const docsOnlyRule = "Documentation-only changes run only the auditor"
 
+const auditorTriage = "The auditor triages every open finding"
+
+// maxPolicyBytes bounds reads so a huge policy file cannot stall CI.
+const maxPolicyBytes = 1 << 20
+
 // requiredPolicy maps each file to the phrases that keep the agent loop documented.
 var requiredPolicy = map[string][]string{
 	"AGENTS.md": {
@@ -24,21 +33,47 @@ var requiredPolicy = map[string][]string{
 		"Maximum 3 cycles",
 		"Changing or removing this loop needs an ADR",
 		docsOnlyRule,
+		auditorTriage,
 	},
-	"CONTRIBUTING.md":                  {agentLoop, "Changing or removing this loop needs an ADR", docsOnlyRule},
+	"CONTRIBUTING.md":                  {agentLoop, "Changing or removing this loop needs an ADR", docsOnlyRule, auditorTriage},
 	".github/PULL_REQUEST_TEMPLATE.md": {agentLoop},
 	"CLAUDE.md":                        {"@AGENTS.md"},
 }
 
+// htmlComment hides text from readers, so phrases inside it do not count.
+var htmlComment = regexp.MustCompile(`(?s)<!--.*?-->`)
+
 func policyProblems(cfg config) ([]string, error) {
-	return checkPolicy(os.DirFS(cfg.root))
+	return checkPolicy(cfg.root, readPolicyFile)
+}
+
+// readPolicyFile reads a regular file only; symlinks could point the guard elsewhere.
+func readPolicyFile(path string) ([]byte, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("%s is not a regular file", path)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return io.ReadAll(io.LimitReader(f, maxPolicyBytes))
 }
 
 // checkPolicy reports policy files that are missing or lost a required phrase.
-func checkPolicy(fsys fs.FS) ([]string, error) {
+func checkPolicy(root string, read func(string) ([]byte, error)) ([]string, error) {
+	names := make([]string, 0, len(requiredPolicy))
+	for name := range requiredPolicy {
+		names = append(names, name)
+	}
+	sort.Strings(names)
 	var problems []string
-	for name, phrases := range requiredPolicy {
-		data, err := fs.ReadFile(fsys, name)
+	for _, name := range names {
+		data, err := read(filepath.Join(root, filepath.FromSlash(name)))
 		if errors.Is(err, fs.ErrNotExist) {
 			problems = append(problems, fmt.Sprintf("policy: %s is missing", name))
 			continue
@@ -46,8 +81,9 @@ func checkPolicy(fsys fs.FS) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("policy %s: %w", name, err)
 		}
-		for _, phrase := range phrases {
-			if !strings.Contains(string(data), phrase) {
+		visible := htmlComment.ReplaceAllString(string(data), "")
+		for _, phrase := range requiredPolicy[name] {
+			if !strings.Contains(visible, phrase) {
 				problems = append(problems, fmt.Sprintf("policy: %s must contain %q", name, phrase))
 			}
 		}

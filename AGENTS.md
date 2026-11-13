@@ -42,7 +42,8 @@ go test ./... -failfast           # tests replay recorded model responses; no ke
   - The developer implements the issue; the tester checks every acceptance criterion; the pentester does a static security review (no external network); the auditor re-rates each finding by real impact (exploitability, who can trigger it, existing mitigations) and posts its decision as a PR comment.
   - Confirmed Critical or High blocks the merge and goes back to a new developer, who receives only the findings. Maximum 3 cycles, then escalate to the maintainer.
   - Medium, Low and Info do not block; each open finding becomes a follow-up issue.
-  - Documentation-only changes run only the auditor (saves tokens): the PR touches only `*.md` files or `docs/`, and no code, workflows, settings, Makefile or the policy rules themselves.
+  - Documentation-only changes run only the auditor (saves tokens): the PR touches only `*.md` files or `docs/`, and not code, workflows, settings, Makefile or the policy files (AGENTS.md, CLAUDE.md, CONTRIBUTING.md, PR template).
+  - The auditor triages every open finding (audited severity, priority, size, milestone) and adds each follow-up issue to the project board (Roadmap, project 4) with those fields.
   - Changing or removing this loop needs an ADR in `docs/adr/` and maintainer approval; do not weaken it as a side effect of another change.
 - Merge (squash) only when GitHub checks are green, the tester passes and the auditor allows it. One feature at a time.
 - Branch `feat/<issue>-<slug>`; PR body `Closes #N`; labels from the issue.

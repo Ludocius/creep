@@ -87,7 +87,7 @@ Rulesets cannot enforce "a `v*` tag points to a commit on `main`". The release w
 
 Welcome. Declare it in the PR template. You are responsible for every line you sign off. Agents should read [AGENTS.md](AGENTS.md).
 
-Model-assisted changes go through the agent loop **developer → tester → pentester → auditor**, each agent with no shared context (details in [AGENTS.md](AGENTS.md#workflow-spec-driven)). Link the tester verdict, the security review and the auditor decision in the PR. A confirmed Critical or High finding blocks the merge. Documentation-only changes run only the auditor (only `*.md` or `docs/`, no code, workflows, settings or policy rules). Changing or removing this loop needs an ADR and maintainer approval.
+Model-assisted changes go through the agent loop **developer → tester → pentester → auditor**, each agent with no shared context (details in [AGENTS.md](AGENTS.md#workflow-spec-driven)). Link the tester verdict, the security review and the auditor decision in the PR. A confirmed Critical or High finding blocks the merge. Documentation-only changes run only the auditor (only `*.md` or `docs/`; not code, workflows, settings or the policy files). The auditor triages every open finding and adds the follow-up issues to the project board. Changing or removing this loop needs an ADR and maintainer approval.
 
 ## Code of Conduct
 

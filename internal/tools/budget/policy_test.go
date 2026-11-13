@@ -1,52 +1,87 @@
 package main
 
 import (
+	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
-	"testing/fstest"
 )
 
-func policyFS() fstest.MapFS {
-	fsys := fstest.MapFS{}
+// writePolicy creates every policy file with all required phrases under a temp root.
+func writePolicy(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
 	for name, phrases := range requiredPolicy {
-		fsys[name] = &fstest.MapFile{Data: []byte(strings.Join(phrases, "\n"))}
+		writeFile(t, root, name, strings.Join(phrases, "\n"))
 	}
-	return fsys
+	return root
 }
 
-func TestCheckPolicy(t *testing.T) {
-	tests := []struct {
-		name   string
-		mutate func(fstest.MapFS)
-		want   string
-	}{
-		{"complete policy passes", func(fstest.MapFS) {}, ""},
-		{"missing file", func(f fstest.MapFS) { delete(f, "AGENTS.md") }, "AGENTS.md is missing"},
-		{"loop removed", func(f fstest.MapFS) {
-			f["CONTRIBUTING.md"] = &fstest.MapFile{Data: []byte("Changing or removing this loop needs an ADR")}
-		}, `CONTRIBUTING.md must contain "developer → tester → pentester → auditor"`},
-		{"auditor dropped from loop", func(f fstest.MapFS) {
-			f[".github/PULL_REQUEST_TEMPLATE.md"] = &fstest.MapFile{Data: []byte("developer → tester → pentester")}
-		}, "PULL_REQUEST_TEMPLATE.md must contain"},
-		{"claude no longer loads agents", func(f fstest.MapFS) {
-			f["CLAUDE.md"] = &fstest.MapFile{Data: []byte("")}
-		}, `CLAUDE.md must contain "@AGENTS.md"`},
+func writeFile(t *testing.T, root, name, content string) {
+	t.Helper()
+	path := filepath.Join(root, filepath.FromSlash(name))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fsys := policyFS()
-			tt.mutate(fsys)
-			problems, err := checkPolicy(fsys)
-			if err != nil {
-				t.Fatal(err)
-			}
-			got := strings.Join(problems, "\n")
-			if tt.want == "" && got != "" {
-				t.Fatalf("unexpected problems: %s", got)
-			}
-			if !strings.Contains(got, tt.want) {
-				t.Fatalf("problems %q do not mention %q", got, tt.want)
-			}
-		})
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCheckPolicyComplete(t *testing.T) {
+	problems, err := checkPolicy(writePolicy(t), readPolicyFile)
+	if err != nil || len(problems) > 0 {
+		t.Fatalf("problems %v, err %v", problems, err)
+	}
+}
+
+// Every required phrase must be enforced on its own, not just some of them.
+func TestCheckPolicyEachPhrase(t *testing.T) {
+	for name, phrases := range requiredPolicy {
+		for i, phrase := range phrases {
+			t.Run(name+"/"+phrase, func(t *testing.T) {
+				root := writePolicy(t)
+				rest := append(append([]string{}, phrases[:i]...), phrases[i+1:]...)
+				hidden := "<!-- " + phrase + " -->"
+				writeFile(t, root, name, strings.Join(append(rest, hidden), "\n"))
+				problems, err := checkPolicy(root, readPolicyFile)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !strings.Contains(strings.Join(problems, "\n"), name) {
+					t.Fatalf("removing %q from %s was not reported: %v", phrase, name, problems)
+				}
+			})
+		}
+	}
+}
+
+func TestCheckPolicyMissingFile(t *testing.T) {
+	root := writePolicy(t)
+	if err := os.Remove(filepath.Join(root, "AGENTS.md")); err != nil {
+		t.Fatal(err)
+	}
+	problems, err := checkPolicy(root, readPolicyFile)
+	if err != nil || !strings.Contains(strings.Join(problems, "\n"), "AGENTS.md is missing") {
+		t.Fatalf("problems %v, err %v", problems, err)
+	}
+}
+
+func TestCheckPolicyReadErrorFailsClosed(t *testing.T) {
+	failing := func(string) ([]byte, error) { return nil, errors.New("boom") }
+	if _, err := checkPolicy(writePolicy(t), failing); err == nil {
+		t.Fatal("read error must fail the budget")
+	}
+}
+
+func TestReadPolicyFileRejectsSymlink(t *testing.T) {
+	root := writePolicy(t)
+	link := filepath.Join(root, "link.md")
+	if err := os.Symlink(filepath.Join(root, "AGENTS.md"), link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if _, err := readPolicyFile(link); err == nil {
+		t.Fatal("symlink must be rejected")
 	}
 }
