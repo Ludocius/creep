@@ -66,7 +66,7 @@ Rulesets live in [`.github/rulesets/`](.github/rulesets/) and are applied with `
 
 Maintainers only. Versions follow [SemVer](https://semver.org/); pre-releases are `vX.Y.Z-rc.N`. Before 1.0 a minor release may break things and says so under ⚠️ Breaking changes.
 
-1. Close the milestone: every issue done or moved.
+1. Close the milestone: every issue done or moved. Run the release pentest ([ADR 0004](docs/adr/0004-pentester-per-release.md)) and the architecture review with its wiki diagram update ([ADR 0005](docs/adr/0005-auditor-architecture-review.md)); a confirmed Critical or High blocks the release.
 2. Tag a release candidate on `main` and push it: `git tag -a v0.1.0-rc.1 -m v0.1.0-rc.1 && git push origin v0.1.0-rc.1`.
 3. Verify the artifacts, checksums, provenance and draft notes. Notes come from [`.github/release.yml`](.github/release.yml); anything labelled `affects-results` must be called out, because users' results and baselines will shift.
 4. Tag the final version on the same commit: `v0.1.0`.
