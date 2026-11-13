@@ -20,9 +20,13 @@ const (
 	maxRunBytes  = 32 << 20
 	// maxWindowValues bounds the values indexed under one 8-byte window, so
 	// each text position checks at most this many candidates. A value takes
-	// its least crowded window; only a value whose every window is full
-	// (long runs of one short pattern) fills the run.
+	// its least crowded window.
 	maxWindowValues = 16
+	// maxOverflowValues bounds the values whose every window is full (runs of
+	// one byte or one short pattern, such as "xxxxxxxx" placeholders). They
+	// are checked at every position, so this bounds that cost too; only when
+	// it is also full does the run end.
+	maxOverflowValues = 256
 )
 
 // ErrRunFull is returned once the run's value map reaches its cap (about
@@ -40,9 +44,11 @@ const hashMod = 1<<61 - 1
 // value is indexed under one 8-byte window it contains, and a polynomial
 // hash of the text's prefixes checks a candidate in constant time.
 type sweepIndex struct {
-	base    uint64
-	values  []sweepValue
-	windows map[uint64][]int // window bytes -> value ids
+	base          uint64
+	values        []sweepValue
+	windows       map[uint64][]int // window bytes -> value ids
+	overflow      [256][]int       // first byte -> ids of values whose every window was full
+	overflowCount int
 }
 
 // sweepValue is a known value: its length, where its window starts, its hash
@@ -68,8 +74,9 @@ func randomBase() uint64 {
 	return window(string(b[:]), 0)%(hashMod-256) + 256
 }
 
-// add indexes value under its least crowded window. It reports false when
-// every window already holds maxWindowValues values.
+// add indexes value under its least crowded window, or in the overflow list
+// when every window already holds maxWindowValues values. It reports false
+// only when the overflow list is full too.
 func (x *sweepIndex) add(value string) bool {
 	offset, crowd := 0, maxWindowValues
 	for i := 0; i+minSweepLen <= len(value) && crowd > 0; i++ {
@@ -77,41 +84,63 @@ func (x *sweepIndex) add(value string) bool {
 			offset, crowd = i, n
 		}
 	}
-	if crowd >= maxWindowValues {
+	id := len(x.values)
+	switch {
+	case crowd < maxWindowValues:
+		w := window(value, offset)
+		x.windows[w] = append(x.windows[w], id)
+	case x.overflowCount < maxOverflowValues:
+		offset = 0
+		x.overflow[value[0]] = append(x.overflow[value[0]], id)
+		x.overflowCount++
+	default:
 		return false
 	}
 	hash, scale := x.hashOf(value)
-	w := window(value, offset)
-	x.windows[w] = append(x.windows[w], len(x.values))
 	x.values = append(x.values, sweepValue{length: len(value), offset: offset, hash: hash, scale: scale})
 	return true
 }
 
+// sweepScan is the state of one find: the text's prefix hashes and where
+// each value's last occurrence ends.
+type sweepScan struct {
+	x        *sweepIndex
+	text     string
+	prefix   []uint64
+	nextFree map[int]int // value id -> end of its last occurrence
+	found    []span
+}
+
 // find returns every occurrence of a known value in text. Like a search per
 // value, occurrences of one value do not overlap; occurrences of different
-// values may.
+// values may. Each position checks at most maxWindowValues values from its
+// window plus the overflow values that start with the byte at that position.
 func (x *sweepIndex) find(text string) []span {
 	if len(x.values) == 0 || len(text) < minSweepLen {
 		return nil
 	}
-	prefix := x.prefixHashes(text)
-	nextFree := map[int]int{} // value id -> end of its last occurrence
-	var found []span
+	s := sweepScan{x: x, text: text, prefix: x.prefixHashes(text), nextFree: map[int]int{}}
 	for p := 0; p+minSweepLen <= len(text); p++ {
-		for _, id := range x.windows[window(text, p)] {
-			v := x.values[id]
-			start := p - v.offset
-			end := start + v.length
-			if start < nextFree[id] || start < 0 || end > len(text) {
-				continue
-			}
-			if substringHash(prefix, start, end, v.scale) == v.hash {
-				found = append(found, span{start: start, end: end})
-				nextFree[id] = end
-			}
+		s.check(p, x.windows[window(text, p)])
+		s.check(p, x.overflow[text[p]])
+	}
+	return s.found
+}
+
+// check records each value among ids that occurs with its window at p.
+func (s *sweepScan) check(p int, ids []int) {
+	for _, id := range ids {
+		v := s.x.values[id]
+		start := p - v.offset
+		end := start + v.length
+		if start < 0 || end > len(s.text) || substringHash(s.prefix, start, end, v.scale) != v.hash {
+			continue
+		}
+		if start >= s.nextFree[id] {
+			s.found = append(s.found, span{start: start, end: end})
+			s.nextFree[id] = end
 		}
 	}
-	return found
 }
 
 // window reads the 8 bytes of s at i as one map key.

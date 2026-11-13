@@ -173,9 +173,10 @@ func TestRedactRunFull(t *testing.T) {
 		}},
 		{"bytes", func(s *runState) { s.bytes = maxRunBytes - 5 }},
 		// Every window of a run of one byte is the same, so the values made of
-		// it fill one window; the next such value cannot be indexed.
-		{"window", func(s *runState) {
-			for n := range maxWindowValues + 1 {
+		// it fill one window, then the overflow list; the next one cannot be
+		// indexed.
+		{"window and overflow", func(s *runState) {
+			for n := range maxWindowValues + maxOverflowValues + 1 {
 				s.marker(strings.Repeat("@", minSweepLen+n), "SECRET_TEST")
 			}
 		}},
@@ -259,5 +260,39 @@ func TestFindWithinBudgetUnchanged(t *testing.T) {
 	want := []span{{4, 104, "SECRET_TEST"}, {4, 104, "SECRET_TEST"}}
 	if !slices.Equal(got, want) {
 		t.Fatalf("find = %v, want %v", got, want)
+	}
+}
+
+// Placeholder secrets made of one repeated byte fill every window they have;
+// the overflow list keeps them, so the run goes on and still re-masks them.
+func TestRedactRepeatedBytePlaceholders(t *testing.T) {
+	tests := []struct {
+		name  string
+		bytes string
+	}{
+		{"one byte, many lengths", "x"},
+		{"many crowded bytes", "abcdefgh"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := newRedactor(t)
+			var bare strings.Builder
+			for _, c := range tt.bytes {
+				for n := minSweepLen; n <= 40; n++ {
+					v := strings.Repeat(string(c), n)
+					mustRedact(t, r, "password = \""+v+"\"\n")
+					bare.WriteString("x := " + v + "\n")
+				}
+			}
+			if r.state.index.overflowCount == 0 {
+				t.Fatal("no value reached the overflow list")
+			}
+			out := mustRedact(t, r, bare.String())
+			for _, c := range tt.bytes {
+				if run := strings.Repeat(string(c), minSweepLen); strings.Contains(out, run) {
+					t.Fatalf("%q leaked: %q", run, out)
+				}
+			}
+		})
 	}
 }

@@ -54,3 +54,27 @@ func BenchmarkRedactRepoChunk(b *testing.B) {
 	slices.Sort(times)
 	b.ReportMetric(float64(times[len(times)/2].Nanoseconds()), "median-ns/chunk")
 }
+
+// BenchmarkSweepOverflow redacts real code with the overflow list empty and
+// full of values that start with "e", the commonest byte of code: each is
+// checked at every "e" in the text. The crafted case is mostly "e", in runs
+// that are known values, so it adds none.
+func BenchmarkSweepOverflow(b *testing.B) {
+	code := repoChunks(b)[0]
+	for _, tt := range []struct {
+		n     int
+		chunk string
+	}{{0, code}, {maxOverflowValues, code}, {maxOverflowValues, fill("eeeeeeee ")}} {
+		n, chunk := tt.n, tt.chunk
+		b.Run(fmt.Sprintf("overflow=%d/crafted=%t", n, chunk != code), func(b *testing.B) {
+			r := newRedactor(b)
+			for i := range maxWindowValues + n {
+				r.state.marker(strings.Repeat("e", minSweepLen+i), "SECRET_TEST")
+			}
+			b.SetBytes(int64(len(chunk)))
+			for b.Loop() {
+				mustRedact(b, r, chunk)
+			}
+		})
+	}
+}

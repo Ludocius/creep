@@ -90,7 +90,9 @@
 // fixed multiple of the input and masks the rest of it instead.
 //
 // Run limits: one run remembers at most about 128k values or 32 MiB of them
-// (a private key without an END line is one value up to the end of its file).
+// (a private key without an END line is one value up to the end of its file),
+// and at most 256 values whose every 8-byte window already indexes 16 others
+// (runs of one byte or short pattern, such as "xxxxxxxx" placeholders).
 // When a new value does not fit, that call and every later call on the
 // Redactor return ErrRunFull and no output, because a value the run cannot
 // remember would not be re-masked in later fragments. Callers must stop
