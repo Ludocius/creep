@@ -84,5 +84,15 @@
 // catastrophic backtracking. Each Redact call is still bounded to
 // MaxInputBytes, each File call to MaxFileBytes (1 MiB) with lines of at most
 // MaxLineBytes, and both fail closed above their caps. The constants document
-// the measured worst case.
+// the measured worst case. Values from earlier fragments are re-masked through
+// an index of 8-byte windows, linear in the input however many values the run
+// knows. A rule whose matches overlap densely stops searching again after a
+// fixed multiple of the input and masks the rest of it instead.
+//
+// Run limits: one run remembers at most about 128k values or 32 MiB of them
+// (a private key without an END line is one value up to the end of its file).
+// When a new value does not fit, that call and every later call on the
+// Redactor return ErrRunFull and no output, because a value the run cannot
+// remember would not be re-masked in later fragments. Callers must stop
+// sending that run's fragments and report the scan as incomplete.
 package redact

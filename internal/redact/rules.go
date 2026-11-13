@@ -126,6 +126,14 @@ func (r secretRule) applies(lower string) bool {
 	return false
 }
 
+// restartBudget bounds the bytes find scans again, as a multiple of the text
+// (or of minRestartBudgetBase for short text). Ordinary code scans about 2%
+// again and crafted dense keys about 5 times (BenchmarkRedact, "hex kw").
+const (
+	restartBudget        = 8
+	minRestartBudgetBase = 4 << 10
+)
+
 // find returns the byte spans of the secrets this rule matches in text.
 // The secret is the configured group, else the union of the groups that took
 // part, else the whole match; that keeps names and quotes around it visible.
@@ -136,9 +144,20 @@ func (r secretRule) applies(lower string) bool {
 // make a lazy match ("-----BEGIN ... KEY-----" opened earlier) end inside the
 // real secret and hide the rest of it. Searching a suffix can see a word
 // boundary that is not there, which only masks more, never less.
+//
+// Each restart scans the previous match again, so dense overlapping matches
+// cost a multiple of the text: about 40 times for a .env file of long
+// variable names, through the generic rule's 50-byte lazy prefix. Once the
+// bytes scanned again pass restartBudget, the rest of the text from the next
+// restart is masked as one span: every later match starts there, so this only
+// masks more, and the cost stays within a fixed multiple of the text.
 func (r secretRule) find(text string) []span {
 	var out []span
-	for pos := 0; pos <= len(text); {
+	budget := restartBudget * max(len(text), minRestartBudgetBase)
+	for pos := 0; pos < len(text); {
+		if budget < 0 {
+			return append(out, span{start: pos, end: len(text), label: r.label})
+		}
 		m := r.re.FindStringSubmatchIndex(text[pos:])
 		if m == nil {
 			break
@@ -147,6 +166,7 @@ func (r secretRule) find(text string) []span {
 		if start < end {
 			out = append(out, span{start: pos + start, end: pos + end, label: r.label})
 		}
+		budget -= m[1] - m[0]
 		pos += m[0] + 1
 	}
 	return out
