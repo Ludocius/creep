@@ -12,6 +12,9 @@ import (
 // must fail CI so it can only change through an ADR and this file (CODEOWNERS).
 const agentLoop = "developer → tester → pentester → auditor"
 
+// docsOnlyRule is the one sanctioned shortcut, kept narrow so it cannot cover code.
+const docsOnlyRule = "Documentation-only changes run only the auditor"
+
 // requiredPolicy maps each file to the phrases that keep the agent loop documented.
 var requiredPolicy = map[string][]string{
 	"AGENTS.md": {
@@ -20,8 +23,9 @@ var requiredPolicy = map[string][]string{
 		"Confirmed Critical or High blocks the merge",
 		"Maximum 3 cycles",
 		"Changing or removing this loop needs an ADR",
+		docsOnlyRule,
 	},
-	"CONTRIBUTING.md":                  {agentLoop, "Changing or removing this loop needs an ADR"},
+	"CONTRIBUTING.md":                  {agentLoop, "Changing or removing this loop needs an ADR", docsOnlyRule},
 	".github/PULL_REQUEST_TEMPLATE.md": {agentLoop},
 	"CLAUDE.md":                        {"@AGENTS.md"},
 }
