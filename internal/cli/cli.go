@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/Ludocius/creep/internal/exitcode"
+	"github.com/sneakercreepers/creep/internal/exitcode"
 )
 
 // Run executes creep with args (without the program name) and returns the

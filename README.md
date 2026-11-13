@@ -5,19 +5,19 @@
 **Find vulnerabilities in your own code with whatever model you have — small or large, local or cloud.**
 `creep` measures what your model can actually do, adapts its strategy, verifies findings by running them, and tells you plainly what it did *not* check.
 
-[![v0.1 progress](https://img.shields.io/github/milestones/progress-percent/Ludocius/creep/1?label=v0.1)](https://github.com/Ludocius/creep/milestone/1)
-[![Open issues](https://img.shields.io/github/issues/Ludocius/creep)](https://github.com/Ludocius/creep/issues)
-[![CI](https://github.com/Ludocius/creep/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Ludocius/creep/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/Ludocius/creep/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/Ludocius/creep/actions/workflows/codeql.yml)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Ludocius/creep/badge)](https://scorecard.dev/viewer/?uri=github.com/Ludocius/creep)
-[![Go Reference](https://pkg.go.dev/badge/github.com/Ludocius/creep.svg)](https://pkg.go.dev/github.com/Ludocius/creep)
+[![v0.1 progress](https://img.shields.io/github/milestones/progress-percent/sneakercreepers/creep/1?label=v0.1)](https://github.com/sneakercreepers/creep/milestone/1)
+[![Open issues](https://img.shields.io/github/issues/sneakercreepers/creep)](https://github.com/sneakercreepers/creep/issues)
+[![CI](https://github.com/sneakercreepers/creep/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sneakercreepers/creep/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/sneakercreepers/creep/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/sneakercreepers/creep/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/sneakercreepers/creep/badge)](https://scorecard.dev/viewer/?uri=github.com/sneakercreepers/creep)
+[![Go Reference](https://pkg.go.dev/badge/github.com/sneakercreepers/creep.svg)](https://pkg.go.dev/github.com/sneakercreepers/creep)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 ![Status](https://img.shields.io/badge/status-pre--alpha-orange)
 
 </div>
 
 > [!WARNING]
-> **Pre-alpha.** Nothing is released yet. This README describes the v0.1 target; follow progress on the [Roadmap project](https://github.com/users/Ludocius/projects/4) and the [v0.1 milestone](https://github.com/Ludocius/creep/milestones).
+> **Pre-alpha.** Nothing is released yet. This README describes the v0.1 target; follow progress on the [Roadmap project](https://github.com/users/Ludocius/projects/4) and the [v0.1 milestone](https://github.com/sneakercreepers/creep/milestones).
 
 ---
 
@@ -34,11 +34,11 @@
 
 > Available from **v0.1**.
 
-**Prebuilt binary** (Windows, macOS, Linux · amd64/arm64) from [Releases](https://github.com/Ludocius/creep/releases), then verify it:
+**Prebuilt binary** (Windows, macOS, Linux · amd64/arm64) from [Releases](https://github.com/sneakercreepers/creep/releases), then verify it:
 
 ```sh
 cosign verify-blob \
-  --certificate-identity-regexp 'https://github.com/Ludocius/creep/.*' \
+  --certificate-identity-regexp 'https://github.com/sneakercreepers/creep/.*' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   --bundle checksums.txt.sigstore.json checksums.txt
 sha256sum --check --ignore-missing checksums.txt
@@ -47,13 +47,13 @@ sha256sum --check --ignore-missing checksums.txt
 **With Go** (1.24+):
 
 ```sh
-go install github.com/Ludocius/creep/cmd/creep@latest
+go install github.com/sneakercreepers/creep/cmd/creep@latest
 ```
 
 **From source:**
 
 ```sh
-git clone https://github.com/Ludocius/creep && cd creep
+git clone https://github.com/sneakercreepers/creep && cd creep
 make build   # binary in ./bin/creep
 ```
 

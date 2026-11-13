@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/Ludocius/creep/internal/exitcode"
+	"github.com/sneakercreepers/creep/internal/exitcode"
 )
 
 func printUsage(w io.Writer) {

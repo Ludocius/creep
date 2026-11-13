@@ -4,7 +4,7 @@ Thanks for helping. The most valuable contributions are often not code:
 
 - **False negative**: a vulnerability `creep` missed. Use the *False negative* issue form with a minimal vulnerable example. It becomes a test case.
 - **False positive**: a finding that is wrong. Use the *False positive* issue form.
-- **Model results**: calibration or benchmark results with your model. Post them in [Discussions → Show and tell](https://github.com/Ludocius/creep/discussions/categories/show-and-tell).
+- **Model results**: calibration or benchmark results with your model. Post them in [Discussions → Show and tell](https://github.com/sneakercreepers/creep/discussions/categories/show-and-tell).
 - **Recipes and model presets**: data, not code. See the issue forms.
 
 ## Before you start
@@ -36,7 +36,7 @@ go test ./...                                   # replays deterministically, no 
 - One logical change per PR. Small PRs get reviewed faster.
 - Branch from `main`. PRs are squash-merged; `main` has linear history.
 - Title in [Conventional Commits](https://www.conventionalcommits.org/) format: `feat(redact): detect JWTs`.
-- **Signed commits** (SSH or GPG) are recommended and will become required on `main` once the maintainer has signing set up ([#49](https://github.com/Ludocius/creep/issues/49)). See [GitHub docs](https://docs.github.com/authentication/managing-commit-signature-verification).
+- **Signed commits** (SSH or GPG) are recommended and will become required on `main` once the maintainer has signing set up ([#49](https://github.com/sneakercreepers/creep/issues/49)). See [GitHub docs](https://docs.github.com/authentication/managing-commit-signature-verification).
 - **DCO**: every commit needs `Signed-off-by` (`git commit -s`). By signing off you certify the [Developer Certificate of Origin](https://developercertificate.org/). We do not use a CLA.
 - Add a release-note label (see below).
 
@@ -74,7 +74,7 @@ Maintainers only. Versions follow [SemVer](https://semver.org/); pre-releases ar
 
 Tags are immutable (ruleset) and so are published releases (immutable releases are enabled). A mistake means a new version, never a moved tag.
 
-Rulesets cannot enforce "a `v*` tag points to a commit on `main`". The release workflow ([#19](https://github.com/Ludocius/creep/issues/19)) checks ancestry before building and refuses a tag whose commit is on neither `main` nor a `release/*` branch.
+Rulesets cannot enforce "a `v*` tag points to a commit on `main`". The release workflow ([#19](https://github.com/sneakercreepers/creep/issues/19)) checks ancestry before building and refuses a tag whose commit is on neither `main` nor a `release/*` branch.
 
 **Hotfix** (patch without shipping unreleased work from `main`):
 

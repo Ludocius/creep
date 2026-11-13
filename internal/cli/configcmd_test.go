@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Ludocius/creep/internal/exitcode"
+	"github.com/sneakercreepers/creep/internal/exitcode"
 )
 
 var updateGolden = flag.Bool("update", false, "rewrite testdata golden files")

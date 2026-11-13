@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Ludocius/creep/internal/exitcode"
+	"github.com/sneakercreepers/creep/internal/exitcode"
 )
 
 func run(args ...string) (code int, stdout, stderr string) {

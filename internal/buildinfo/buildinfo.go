@@ -7,8 +7,8 @@ import (
 
 // Set at link time:
 //
-//	-ldflags "-X github.com/Ludocius/creep/internal/buildinfo.version=v0.1.0
-//	          -X github.com/Ludocius/creep/internal/buildinfo.commit=abc1234"
+//	-ldflags "-X github.com/sneakercreepers/creep/internal/buildinfo.version=v0.1.0
+//	          -X github.com/sneakercreepers/creep/internal/buildinfo.commit=abc1234"
 var (
 	version string
 	commit  string

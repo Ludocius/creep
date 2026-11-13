@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"text/tabwriter"
 
-	"github.com/Ludocius/creep/internal/config"
-	"github.com/Ludocius/creep/internal/exitcode"
+	"github.com/sneakercreepers/creep/internal/config"
+	"github.com/sneakercreepers/creep/internal/exitcode"
 )
 
 // Default file locations. The user file is shown as "~/..." so messages and

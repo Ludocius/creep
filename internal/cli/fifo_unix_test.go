@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Ludocius/creep/internal/exitcode"
+	"github.com/sneakercreepers/creep/internal/exitcode"
 )
 
 // TestConfigRejectsFIFO guards against a hang: opening a FIFO with no writer

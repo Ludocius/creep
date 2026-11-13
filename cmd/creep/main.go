@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/Ludocius/creep/internal/cli"
+	"github.com/sneakercreepers/creep/internal/cli"
 )
 
 func main() {
