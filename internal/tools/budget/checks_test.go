@@ -157,7 +157,21 @@ func assertOneProblem(t *testing.T, problems []string, want string) {
 		}
 		return
 	}
+
 	if len(problems) != 1 || !strings.Contains(problems[0], want) {
 		t.Errorf("problems = %q, want one containing %q", problems, want)
+	}
+}
+
+func TestCheckFileLinesNoTrailingNewline(t *testing.T) {
+	fsys := fstest.MapFS{
+		"noeol.go": {Data: []byte(strings.Repeat("x\n", 400) + "x")},
+	}
+	got, err := checkFileLines(fsys, 400)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0] != "noeol.go has 401 lines, cap is 400" {
+		t.Errorf("got %q, want [noeol.go has 401 lines, cap is 400]", got)
 	}
 }
