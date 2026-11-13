@@ -13,7 +13,7 @@ import (
 // constant: ordinary code wakes only a few rules and takes tens of
 // milliseconds at the cap, while input crafted to hold every rule keyword
 // before a long word run makes all ~220 rules scan it, about 10 s at the cap
-// (BenchmarkRedact, "every keyword"). Callers split larger files.
+// (BenchmarkRedact, "every keyword"). Whole files go through File, which chunks them.
 const MaxInputBytes = 64 << 10
 
 // maxMarkerLen bounds how far Unredact looks for the closing ">".
@@ -75,13 +75,18 @@ func (r *Redactor) Redact(text string) (string, error) {
 	if len(text) > MaxInputBytes {
 		return "", fmt.Errorf("redact %d bytes: %w", len(text), ErrTooLarge)
 	}
-	found := r.detect(text)
+	return r.finish(text, r.detect(text)), nil
+}
+
+// finish adds the values known from earlier calls to the spans found in
+// text, renders the markers and remembers every masked value for later calls.
+func (r *Redactor) finish(text string, found []span) string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	found = append(found, r.state.sweep(text)...)
 	out := r.state.render(text, mergeSpans(found))
 	r.state.rememberParts(text, found)
-	return out, nil
+	return out
 }
 
 // rememberParts gives a marker to each value that was masked only as part of
@@ -97,19 +102,45 @@ func (s *runState) rememberParts(text string, found []span) {
 
 // detect runs every secret rule and PII detector over text.
 func (r *Redactor) detect(text string) []span {
-	var found []span
+	return append(r.gated(text).find(text), findPrivateKeys(text)...)
+}
+
+// detectorSet holds the detectors whose gate opened on some text: the rules
+// whose keyword occurs in it and the pattern detectors whose context matches.
+// Private keys are not in it: they span lines and are found separately.
+type detectorSet struct {
+	rules    []secretRule
+	patterns []patternDetector
+}
+
+// gated returns the detectors that apply to text. File gates on the whole
+// file, so a keyword or context in one chunk wakes a detector for every chunk.
+func (r *Redactor) gated(text string) detectorSet {
+	var set detectorSet
 	lower := strings.ToLower(text)
 	for _, rule := range r.rules {
 		if rule.applies(lower) {
-			found = append(found, rule.find(text)...)
+			set.rules = append(set.rules, rule)
 		}
 	}
-	found = append(found, findPrivateKeys(text)...)
-	for _, d := range credentialDetectors {
-		found = append(found, d.find(text)...)
+	for _, list := range [][]patternDetector{credentialDetectors, piiDetectors} {
+		for _, d := range list {
+			if d.applies(text) {
+				set.patterns = append(set.patterns, d)
+			}
+		}
 	}
-	for _, d := range piiDetectors {
-		found = append(found, d.find(text)...)
+	return set
+}
+
+// find runs the gated detectors over text.
+func (s detectorSet) find(text string) []span {
+	var found []span
+	for _, rule := range s.rules {
+		found = append(found, rule.find(text)...)
+	}
+	for _, d := range s.patterns {
+		found = append(found, d.scan(text)...)
 	}
 	return found
 }

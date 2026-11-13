@@ -6,7 +6,7 @@ import (
 )
 
 // Each pattern is LEAD(VALUE)TRAIL with one boundary character on each side,
-// so a digit run inside a longer identifier or number does not match. find
+// so a digit run inside a longer identifier or number does not match. scan
 // pads the text with newlines so the boundaries also hold at both ends.
 var piiDetectors = []patternDetector{
 	{

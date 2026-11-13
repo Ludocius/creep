@@ -126,3 +126,34 @@ func keyBodyLines(secret string) []string {
 	}
 	return body
 }
+
+// FuzzFile embeds a random secret near the first chunk boundary of a file
+// of real code larger than one chunk, at an offset the fuzzer picks, and
+// checks it never reaches the output of File, which must stay reversible.
+func FuzzFile(f *testing.F) {
+	code := repoCode(f, MaxInputBytes+2*chunkOverlap)
+	f.Add("", "", uint64(1), uint8(9), uint16(0))
+	f.Add("x := `", "`", uint64(2), uint8(6), uint16(3000))
+	f.Add("-----BEGIN PRIV"+"ATE KEY-----", "", uint64(3), uint8(8), uint16(4095))
+	f.Add("// ", "\n", uint64(4), uint8(10), uint16(6000))
+	f.Fuzz(func(t *testing.T, before, after string, seed uint64, kind uint8, offset uint16) {
+		rng := rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))
+		line, secret := fakeLine(rng, int(kind)%(len(secretMakers)+len(credentialMakers)))
+		at := MaxInputBytes - 2*chunkOverlap + int(offset)%(3*chunkOverlap)
+		text := code[:at] + before + "\n" + line + "\n" + after + code[at:]
+		r := newRedactor(t)
+		out, err := r.File([]byte(text))
+		if err != nil {
+			t.Skip(err)
+		}
+		if strings.Contains(out, secret) {
+			t.Fatalf("secret leaked: %q", secret)
+		}
+		if w := leakedWindow(windows(keyBodyLines(secret)), out); w != "" {
+			t.Fatalf("key body leaked %q", w)
+		}
+		if r.Unredact(out) != text {
+			t.Fatal("Unredact(File(x)) != x")
+		}
+	})
+}

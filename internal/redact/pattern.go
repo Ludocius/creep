@@ -16,16 +16,19 @@ type patternDetector struct {
 	when  *regexp.Regexp
 }
 
-// find returns the spans of valid values: the first group that matched, so a
-// pattern can offer quoted and unquoted alternatives. Patterns may start with
-// one boundary character; find pads the text with newlines so boundaries
-// also hold at both ends. Each search restarts at the end of the previous
-// value, so its trailing boundary character can lead the next match
-// ("a@b.io,c@d.io"); every step advances, so the scan stays linear.
-func (d patternDetector) find(text string) []span {
-	if d.when != nil && !d.when.MatchString(text) {
-		return nil
-	}
+// applies reports whether the context gate, if any, matches text.
+func (d patternDetector) applies(text string) bool {
+	return d.when == nil || d.when.MatchString(text)
+}
+
+// scan returns the spans of valid values, ignoring the context gate: the
+// first group that matched, so a pattern can offer quoted and unquoted
+// alternatives. Patterns may start with one boundary character; scan pads
+// the text with newlines so boundaries also hold at both ends. Each search
+// restarts at the end of the previous value, so its trailing boundary
+// character can lead the next match ("a@b.io,c@d.io"); every step advances,
+// so the scan stays linear.
+func (d patternDetector) scan(text string) []span {
 	padded := "\n" + text + "\n"
 	var out []span
 	for pos := 0; pos < len(padded); {

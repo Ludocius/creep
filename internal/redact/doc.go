@@ -63,8 +63,26 @@
 // "<ESC_") is escaped by inserting ESC_, so repository text can neither forge a
 // marker that un-redacts to a real secret nor collide with one.
 //
+// Whole files: File redacts a file before anything cuts it, so a secret is
+// never seen split across fragments. Callers that fragment repository text
+// (the gateway, #3, and the reader, #13) must fragment only text returned by
+// File, never raw file content: the per-fragment detectors in Redact can only
+// guess at a key or token a boundary cut, and a guess can miss (a partial
+// line of a key body, a token's tail with no prefix). File finds private keys
+// over the whole file (from BEGIN to END, BEGIN to the end of the file, the
+// start of the file to END, and bare key bodies), then runs the other
+// detectors on chunks of at most MaxInputBytes cut at line ends, each
+// reaching chunkOverlap (4 KiB) back into the previous one. Every line lies in
+// one chunk with the 4 KiB before it, and no non-exempt rule reaches more than
+// a few hundred bytes back from its last line (derived per regex by
+// TestChunkOverlapBound), so every match is seen whole by some chunk. Spans
+// from all chunks are merged before markers are written, so a value found
+// twice in an overlap is masked once and keeps one marker for the run.
+// Redact still applies every detector to each fragment, as defense in depth.
+//
 // Performance: Go's regexp is linear-time (RE2), so no input can trigger
-// catastrophic backtracking. Each call is still bounded to MaxInputBytes and
-// fails closed above it; callers split larger files. MaxInputBytes documents
+// catastrophic backtracking. Each Redact call is still bounded to
+// MaxInputBytes, each File call to MaxFileBytes (1 MiB) with lines of at most
+// MaxLineBytes, and both fail closed above their caps. The constants document
 // the measured worst case.
 package redact

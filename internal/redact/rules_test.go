@@ -71,7 +71,7 @@ func TestMarkersMatchNoRule(t *testing.T) {
 			}
 		}
 		for _, d := range slices.Concat(piiDetectors, credentialDetectors) {
-			if got := d.find(text); len(got) > 0 {
+			if got := d.scan(text); len(got) > 0 {
 				t.Errorf("detector %s matches marker %q", d.label, text)
 			}
 		}
