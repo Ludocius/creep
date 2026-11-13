@@ -1,0 +1,5 @@
+go test fuzz v1
+string("-----BEGIN PRIVATE KEY-----\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n")
+string("-----END")
+uint64(7)
+uint8(6)

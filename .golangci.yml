@@ -60,10 +60,12 @@ linters:
       # Unchecked Close/Fprint*/RemoveAll on best-effort paths.
       - std-error-handling
     rules:
-      # Tests build and run the binary on purpose.
+      # Tests build and run the binary on purpose (G204, G702). Their fixtures
+      # come from math/rand with fixed seeds so a failure replays (G404); no
+      # test value is a real secret.
       - path: _test\.go
         linters: [gosec]
-        text: "G204|G702"
+        text: "G204|G404|G702"
 
 formatters:
   enable:
