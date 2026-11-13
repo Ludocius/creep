@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
-	"path/filepath"
 	"strings"
 )
 
@@ -66,35 +65,6 @@ func skipDir(name string, d fs.DirEntry) bool {
 		return path.Dir(name) == "."
 	}
 	return false
-}
-
-// checkFileLines reports .go files under root with more than maxLines lines.
-func checkFileLines(fsys fs.FS, maxLines int) ([]string, error) {
-	var problems []string
-	err := fs.WalkDir(fsys, ".", func(name string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if skipDir(name, d) {
-			return fs.SkipDir
-		}
-		if d.IsDir() || filepath.Ext(name) != ".go" {
-			return nil
-		}
-		data, err := fs.ReadFile(fsys, name)
-		if err != nil {
-			return err
-		}
-		n := bytes.Count(data, []byte("\n"))
-		if len(data) > 0 && data[len(data)-1] != '\n' {
-			n++
-		}
-		if n > maxLines {
-			problems = append(problems, fmt.Sprintf("%s has %d lines, cap is %d", name, n, maxLines))
-		}
-		return nil
-	})
-	return problems, err
 }
 
 // isADRPath accepts only clean slash paths inside docs/adr/, so an allowlist

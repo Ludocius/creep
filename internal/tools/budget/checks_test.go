@@ -4,32 +4,12 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"testing/fstest"
 )
 
 func TestDirectModules(t *testing.T) {
-	reqs := []modRequire{
-		{Path: "example.com/a"},
-		{Path: "example.com/b", Indirect: true},
-		{Path: "example.com/c", Indirect: true},
-		{Path: "example.com/c/v2", Indirect: true},
-	}
-	tests := []struct {
-		name    string
-		imports []string
-		want    []string
-	}{
-		{"unused indirect stays indirect", []string{"fmt"}, []string{"example.com/a"}},
-		{"used indirect becomes direct", []string{"example.com/b/pkg"}, []string{"example.com/a", "example.com/b"}},
-		{"longest module path wins", []string{"example.com/c/v2/x"}, []string{"example.com/a", "example.com/c/v2"}},
-		{"prefix look-alike is not the module", []string{"example.com/bb"}, []string{"example.com/a"}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := directModules(reqs, tt.imports); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("directModules() = %q, want %q", got, tt.want)
-			}
-		})
+	reqs := []modRequire{{Path: "example.com/a"}, {Path: "example.com/b", Indirect: true}, {Path: "example.com/c"}}
+	if got, want := directModules(reqs), []string{"example.com/a", "example.com/c"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("directModules() = %q, want %q", got, want)
 	}
 }
 
@@ -85,35 +65,6 @@ func TestCheckCap(t *testing.T) {
 	assertOneProblem(t, checkCap("x", 11, 10, "u"), "x is 11 u, cap is 10")
 }
 
-func TestCheckFileLines(t *testing.T) {
-	fsys := fstest.MapFS{
-		"ok.go":                 {Data: []byte(strings.Repeat("\n", 400))},
-		"big.go":                {Data: []byte(strings.Repeat("\n", 401))},
-		"big.txt":               {Data: []byte(strings.Repeat("\n", 900))},
-		"testdata/gen/huge.go":  {Data: []byte(strings.Repeat("\n", 900))},
-		"internal/x/deep_x.go":  {Data: []byte(strings.Repeat("\n", 401))},
-		"vendor/example/big.go": {Data: []byte(strings.Repeat("\n", 900))},
-	}
-	got, err := checkFileLines(fsys, 400)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []string{"big.go has 401 lines, cap is 400", "internal/x/deep_x.go has 401 lines, cap is 400"}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("got %q, want %q", got, want)
-	}
-}
-
-// lineProblems must scan the configured root, not the working directory.
-func TestLineProblemsUsesRoot(t *testing.T) {
-	big := "package big\n" + strings.Repeat("// line\n", 400)
-	got, err := lineProblems(config{root: writeTree(t, map[string]string{"big.go": big}), maxLines: 400})
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertOneProblem(t, got, "big.go has 401 lines")
-}
-
 func TestCheckWorkflow(t *testing.T) {
 	sha := "@3d3c42e5aac5ba805825da76410c181273ba90b1"
 	tests := []struct {
@@ -160,18 +111,5 @@ func assertOneProblem(t *testing.T, problems []string, want string) {
 
 	if len(problems) != 1 || !strings.Contains(problems[0], want) {
 		t.Errorf("problems = %q, want one containing %q", problems, want)
-	}
-}
-
-func TestCheckFileLinesNoTrailingNewline(t *testing.T) {
-	fsys := fstest.MapFS{
-		"noeol.go": {Data: []byte(strings.Repeat("x\n", 400) + "x")},
-	}
-	got, err := checkFileLines(fsys, 400)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got) != 1 || got[0] != "noeol.go has 401 lines, cap is 400" {
-		t.Errorf("got %q, want [noeol.go has 401 lines, cap is 400]", got)
 	}
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"go/parser"
 	"go/token"
@@ -15,6 +16,7 @@ type sourceFile struct {
 	Name    string // slash path relative to the module root
 	Pkg     string // import path of its directory
 	Test    bool
+	Lines   int
 	Imports []string
 	Uses    []string // watched calls such as "os.StartProcess"; see procs.go
 }
@@ -27,9 +29,7 @@ const gatewayDir = "internal/gateway"
 // execAllowed lists module-relative package trees whose shipped code may run
 // other programs. Running curl or a shell is a way around the network ban.
 var execAllowed = []string{
-	"internal/tools", // dev tooling run by make; never part of the binary
-	// "internal/models/command",  // future: model CLIs driven as subprocesses
-	// "internal/static/external", // future: external static analyzers
+	"internal/tools", // dev tooling run by make; the layers table keeps it out of the binary
 }
 
 // execAllowedInTests lists packages whose tests may run programs.
@@ -80,6 +80,10 @@ func parseImports(fsys fs.FS, fset *token.FileSet, name string) (sourceFile, err
 		return sourceFile{}, fmt.Errorf("parse %s: %w", name, err)
 	}
 	f := sourceFile{Name: name, Test: strings.HasSuffix(name, "_test.go"), Uses: selectorUses(file)}
+	f.Lines = bytes.Count(src, []byte("\n"))
+	if len(src) > 0 && src[len(src)-1] != '\n' {
+		f.Lines++
+	}
 	for _, spec := range file.Imports {
 		imp, err := strconv.Unquote(spec.Path.Value)
 		if err != nil {
@@ -141,13 +145,4 @@ func execPermitted(modPath string, f sourceFile) bool {
 		}
 	}
 	return false
-}
-
-// allImports returns every import path declared by files, for dependency checks.
-func allImports(files []sourceFile) []string {
-	var imps []string
-	for _, f := range files {
-		imps = append(imps, f.Imports...)
-	}
-	return imps
 }

@@ -20,7 +20,6 @@ import (
 const (
 	defaultMaxModules   = 30
 	defaultMaxBinaryMiB = 16
-	defaultMaxLines     = 400
 )
 
 type config struct {
@@ -28,7 +27,7 @@ type config struct {
 	allowlist    string
 	maxModules   int
 	maxBinaryMiB int
-	maxLines     int
+	architecture string // holds the layers block, the one copy of the layer table
 }
 
 func main() {
@@ -36,7 +35,7 @@ func main() {
 	flag.StringVar(&cfg.allowlist, "allowlist", "docs/adr/dependencies.txt", "direct dependency allowlist")
 	flag.IntVar(&cfg.maxModules, "max-modules", defaultMaxModules, "cap on `go list -m all` entries")
 	flag.IntVar(&cfg.maxBinaryMiB, "max-binary-mib", defaultMaxBinaryMiB, "cap on the stripped linux/amd64 binary")
-	flag.IntVar(&cfg.maxLines, "max-lines", defaultMaxLines, "cap on lines per .go file")
+	flag.StringVar(&cfg.architecture, "architecture", "docs/architecture.md", "document holding the layers table")
 	flag.Parse()
 	os.Exit(run(cfg, os.Stdout))
 }
@@ -57,12 +56,16 @@ func run(cfg config, out io.Writer) int {
 	return 0
 }
 
+// maxFileLines is AGENTS.md's file cap; it holds for every .go file, whatever its build tags.
+const maxFileLines = 400
+
+var steps = []func(config) ([]string, error){
+	workspaceProblems, depProblems, importProblems, layerProblems, lineProblems, foreignProblems,
+	netReachProblems, moduleProblems, binaryProblems, workflowProblems, policyProblems,
+}
+
 func collect(cfg config) ([]string, error) {
 	var problems []string
-	steps := []func(config) ([]string, error){
-		workspaceProblems, depProblems, importProblems, foreignProblems, netReachProblems,
-		moduleProblems, binaryProblems, lineProblems, workflowProblems, policyProblems,
-	}
 	for _, step := range steps {
 		p, err := step(cfg)
 		if err != nil {
@@ -73,14 +76,35 @@ func collect(cfg config) ([]string, error) {
 	return problems, nil
 }
 
+// loadSources reads go.mod and the imports of every .go file in the module.
+func loadSources(cfg config) (modFile, []sourceFile, error) {
+	mf, err := readModFile(cfg.root)
+	if err != nil {
+		return modFile{}, nil, err
+	}
+	files, err := collectSources(os.DirFS(cfg.root), mf.Module.Path)
+	if err != nil {
+		return modFile{}, nil, fmt.Errorf("scan imports: %w", err)
+	}
+	return mf, files, nil
+}
+
+func lineProblems(cfg config) ([]string, error) {
+	_, files, err := loadSources(cfg)
+	if err != nil {
+		return nil, err
+	}
+	var problems []string
+	for _, f := range files {
+		problems = append(problems, checkCap(f.Name, int64(f.Lines), maxFileLines, "lines")...)
+	}
+	return problems, nil
+}
+
 func depProblems(cfg config) ([]string, error) {
 	mf, err := readModFile(cfg.root)
 	if err != nil {
 		return nil, err
-	}
-	files, err := collectSources(os.DirFS(cfg.root), mf.Module.Path)
-	if err != nil {
-		return nil, fmt.Errorf("scan imports: %w", err)
 	}
 	data, err := os.ReadFile(filepath.Join(cfg.root, cfg.allowlist))
 	if err != nil {
@@ -91,17 +115,13 @@ func depProblems(cfg config) ([]string, error) {
 		return nil, fmt.Errorf("%s: %w", cfg.allowlist, err)
 	}
 	exists := func(p string) bool { return fileExists(filepath.Join(cfg.root, filepath.FromSlash(p))) }
-	return checkDeps(directModules(mf.Require, allImports(files)), allow, exists), nil
+	return checkDeps(directModules(mf.Require), allow, exists), nil
 }
 
 func importProblems(cfg config) ([]string, error) {
-	mf, err := readModFile(cfg.root)
+	mf, files, err := loadSources(cfg)
 	if err != nil {
 		return nil, err
-	}
-	files, err := collectSources(os.DirFS(cfg.root), mf.Module.Path)
-	if err != nil {
-		return nil, fmt.Errorf("scan imports: %w", err)
 	}
 	return append(checkImports(mf.Module.Path, files), checkProcessUses(mf.Module.Path, files)...), nil
 }
@@ -170,10 +190,6 @@ func binaryProblems(cfg config) ([]string, error) {
 	}
 	const mib = 1 << 20
 	return checkCap("stripped linux/amd64 binary", info.Size()/1024, int64(cfg.maxBinaryMiB)*mib/1024, "KiB"), nil
-}
-
-func lineProblems(cfg config) ([]string, error) {
-	return checkFileLines(os.DirFS(cfg.root), cfg.maxLines)
 }
 
 // workflowProblems checks workflows and composite actions (action.yml) anywhere in the repo.

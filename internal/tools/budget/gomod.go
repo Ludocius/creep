@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 )
 
@@ -39,39 +38,17 @@ func readModFile(root string) (modFile, error) {
 	return mf, nil
 }
 
-// directModules returns the required modules that are direct: those go.mod
-// does not mark `// indirect`, plus any module whose packages our code imports.
-// The comment is only a hint written by tidy, so it never hides a used module.
-func directModules(reqs []modRequire, imports []string) []string {
-	direct := map[string]bool{}
+// directModules returns the required modules go.mod does not mark
+// `// indirect`. The marks are exact because `make check` runs
+// `go mod tidy -diff`, which fails when a used module is marked indirect.
+func directModules(reqs []modRequire) []string {
+	var mods []string
 	for _, r := range reqs {
 		if !r.Indirect {
-			direct[r.Path] = true
+			mods = append(mods, r.Path)
 		}
 	}
-	for _, imp := range imports {
-		if mod := owningModule(reqs, imp); mod != "" {
-			direct[mod] = true
-		}
-	}
-	mods := make([]string, 0, len(direct))
-	for m := range direct {
-		mods = append(mods, m)
-	}
-	sort.Strings(mods)
 	return mods
-}
-
-// owningModule picks the longest required module path that contains imp,
-// as the go command does when resolving an import.
-func owningModule(reqs []modRequire, imp string) string {
-	best := ""
-	for _, r := range reqs {
-		if underPath(imp, r.Path) && len(r.Path) > len(best) {
-			best = r.Path
-		}
-	}
-	return best
 }
 
 // underPath reports whether pkg is root or a package nested below it.
