@@ -28,6 +28,9 @@ func largeInputs() map[string]string {
 		"aws 40":    "AKIA" + strings.Repeat("A", 16) + fill("Ab3/+")[20:],
 		"key body":  fill(strings.Repeat("Ab3/+9x", 10)[:64] + "\n"),
 		"pem edges": fill("-----BEGIN PRIV" + "ATE KEY-----\n-----END EC PRIV" + "ATE KEY-----\n"),
+		// Long variable names give the generic rule's lazy 50-byte prefix a
+		// match at every byte, each scanning the whole line again.
+		"env keys": fill("SERVICE_ACCOUNT_PRIMARY_REGION_DEFAULT_SECONDARY_TOKEN=" + strings.Repeat("Ab3x", 30) + "\n"),
 	}
 }
 

@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-// MaxFileBytes bounds one File call. Ordinary code costs about 1.8 s per MiB
+// MaxFileBytes bounds one File call. Ordinary code costs about 2 s per MiB
 // on a 2019 laptop CPU (BenchmarkFileRepoCode); input crafted to wake every
-// rule costs about 7 s per chunk (BenchmarkRedact, "every keyword"), so about
-// two minutes at the cap. The whole-file key scan is linear in the file size
+// rule costs about 8 s per chunk (BenchmarkRedact, "every keyword"), and a
+// file at the cap is at least 17 chunks, so over two minutes. The whole-file key scan is linear in the file size
 // (TestFileBlankTailIsLinear), but lines near MaxLineBytes make chunks overlap
 // more, so a crafted file can take several times longer. A larger cap would
 // let one hostile file stall a scan for longer; larger files fail closed with
@@ -44,8 +44,8 @@ var (
 )
 
 // File redacts a whole file and returns the text that callers may then cut
-// into fragments. It fails closed on content over MaxFileBytes or with a line
-// over MaxLineBytes.
+// into fragments. It fails closed on content over MaxFileBytes, with a line
+// over MaxLineBytes, and once the run's value map is full (ErrRunFull).
 //
 // Private keys are found over the whole file, so a key is masked from its
 // BEGIN line to its END line wherever the file is later cut. The other
@@ -60,7 +60,7 @@ func (r *Redactor) File(content []byte) (string, error) {
 	if n := longestLine(text); n > MaxLineBytes {
 		return "", fmt.Errorf("redact file with a %d-byte line: %w", n, ErrLineTooLong)
 	}
-	return r.finish(text, r.detectFile(text)), nil
+	return r.finish(text, r.detectFile(text))
 }
 
 // detectFile finds private keys over the whole text and runs every other

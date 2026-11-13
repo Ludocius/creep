@@ -10,18 +10,19 @@ import (
 )
 
 // MaxInputBytes bounds one Redact call. RE2 is linear, but with a large
-// constant: ordinary code wakes only a few rules and takes tens of
-// milliseconds at the cap, while input crafted to hold every rule keyword
-// before a long word run makes all ~220 rules scan it, about 10 s at the cap
-// (BenchmarkRedact, "every keyword"). Whole files go through File, which chunks them.
+// constant. Measured on a 2019 laptop CPU (i7-10510U): a full chunk of
+// ordinary code takes about 85 ms (median, BenchmarkRedactRepoChunk); dense
+// key assignments with long names take about 0.6 s, held there by the
+// restart budget in secretRule.find (BenchmarkRedact, "env keys"); input
+// crafted to hold every rule keyword before a long word run makes all ~220
+// rules scan it, about 8 s at the cap (BenchmarkRedact, "every keyword").
+// Re-masking the values of earlier fragments is linear in the input and does
+// not grow with the number of values known (BenchmarkSweepGrowth). Whole
+// files go through File, which chunks them.
 const MaxInputBytes = 64 << 10
 
 // maxMarkerLen bounds how far Unredact looks for the closing ">".
 const maxMarkerLen = 128
-
-// minSweepLen is the shortest known value re-masked wherever it appears.
-// Shorter values would match inside ordinary identifiers.
-const minSweepLen = 8
 
 // ErrTooLarge is returned for input over MaxInputBytes.
 var ErrTooLarge = errors.New("input exceeds redact.MaxInputBytes")
@@ -42,6 +43,9 @@ type runState struct {
 	byValue  map[string]string // original value -> marker
 	byMarker map[string]string // marker -> original value
 	counters map[string]int    // label -> last number used
+	index    sweepIndex        // the values of at least minSweepLen bytes
+	bytes    int               // total length of the keys of byValue
+	full     bool              // a value could not be stored: the run is over
 }
 
 // span is a byte range of the input to replace; label names the marker kind.
@@ -60,6 +64,7 @@ func New() (*Redactor, error) {
 		byValue:  map[string]string{},
 		byMarker: map[string]string{},
 		counters: map[string]int{},
+		index:    newSweepIndex(),
 	}}, nil
 }
 
@@ -70,23 +75,31 @@ func (r *Redactor) Format(f fmt.State, _ rune) {
 }
 
 // Redact returns text with secrets and personal data replaced by markers and
-// pre-existing marker-like text escaped. It fails closed on oversized input.
+// pre-existing marker-like text escaped. It fails closed on oversized input
+// (ErrTooLarge) and once the run's value map is full (ErrRunFull).
 func (r *Redactor) Redact(text string) (string, error) {
 	if len(text) > MaxInputBytes {
 		return "", fmt.Errorf("redact %d bytes: %w", len(text), ErrTooLarge)
 	}
-	return r.finish(text, r.detect(text)), nil
+	return r.finish(text, r.detect(text))
 }
 
 // finish adds the values known from earlier calls to the spans found in
 // text, renders the markers and remembers every masked value for later calls.
-func (r *Redactor) finish(text string, found []span) string {
+// If some value cannot be stored, the output is dropped and the run ends.
+func (r *Redactor) finish(text string, found []span) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	found = append(found, r.state.sweep(text)...)
+	if r.state.full {
+		return "", ErrRunFull
+	}
+	found = append(found, r.state.index.find(text)...)
 	out := r.state.render(text, mergeSpans(found))
 	r.state.rememberParts(text, found)
-	return out
+	if r.state.full {
+		return "", ErrRunFull
+	}
+	return out, nil
 }
 
 // rememberParts gives a marker to each value that was masked only as part of
@@ -145,26 +158,6 @@ func (s detectorSet) find(text string) []span {
 	return found
 }
 
-// sweep finds values already redacted in earlier fragments, even where no
-// rule matches them now (a key reused without its variable name).
-func (s *runState) sweep(text string) []span {
-	var found []span
-	for value := range s.byValue {
-		if len(value) < minSweepLen {
-			continue
-		}
-		for off := 0; ; {
-			i := strings.Index(text[off:], value)
-			if i < 0 {
-				break
-			}
-			found = append(found, span{start: off + i, end: off + i + len(value)})
-			off += i + len(value)
-		}
-	}
-	return found
-}
-
 // mergeSpans sorts spans and joins overlapping ones, so every secret byte is
 // covered even when two rules disagree on the bounds. The most specific label
 // (labelRank) names the merged span, so a URL password that runs into an
@@ -206,10 +199,15 @@ func (s *runState) render(text string, spans []span) string {
 }
 
 // marker returns the value's marker, assigning the next number for its label
-// the first time the value is seen in this run.
+// the first time the value is seen in this run. When the value cannot be
+// stored it marks the run full and returns "": the caller drops the output.
 func (s *runState) marker(value, label string) string {
 	if m, ok := s.byValue[value]; ok {
 		return m
+	}
+	if !s.store(value) {
+		s.full = true
+		return ""
 	}
 	if label == "" {
 		label = secretPrefix + "VALUE"
@@ -219,6 +217,20 @@ func (s *runState) marker(value, label string) string {
 	s.byValue[value] = m
 	s.byMarker[m] = value
 	return m
+}
+
+// store admits a new value within the run's caps and indexes it for the
+// sweep, which re-masks it in later fragments even where no rule matches it
+// any more (a key reused without its variable name).
+func (s *runState) store(value string) bool {
+	if s.full || len(s.byValue) >= maxRunValues || s.bytes+len(value) > maxRunBytes {
+		return false
+	}
+	if len(value) >= minSweepLen && !s.index.add(value) {
+		return false
+	}
+	s.bytes += len(value)
+	return true
 }
 
 // Unredact restores the original values in text produced by this Redactor,
