@@ -61,7 +61,7 @@ func collect(cfg config) ([]string, error) {
 	var problems []string
 	steps := []func(config) ([]string, error){
 		workspaceProblems, depProblems, importProblems, foreignProblems, netReachProblems,
-		moduleProblems, binaryProblems, lineProblems, workflowProblems,
+		moduleProblems, binaryProblems, lineProblems, workflowProblems, policyProblems,
 	}
 	for _, step := range steps {
 		p, err := step(cfg)

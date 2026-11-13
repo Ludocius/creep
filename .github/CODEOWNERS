@@ -14,6 +14,10 @@
 /.goreleaser.yaml        @Ludocius
 
 # Guardrails: lint rules, build checks, dependency budget and ADRs
+/AGENTS.md               @Ludocius
+/CLAUDE.md               @Ludocius
+/CONTRIBUTING.md         @Ludocius
+/.github/PULL_REQUEST_TEMPLATE.md @Ludocius
 /.golangci.yml           @Ludocius
 /Makefile                @Ludocius
 /internal/tools/         @Ludocius
