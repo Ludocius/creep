@@ -17,7 +17,7 @@
 </div>
 
 > [!WARNING]
-> **Pre-alpha.** Nothing is released yet. This README describes the v0.1 target; follow progress on the [Roadmap project](https://github.com/users/Ludocius/projects/4) and the [v0.1 milestone](https://github.com/sneakercreepers/creep/milestones).
+> **Pre-alpha.** Nothing is released yet. This README describes the v0.1 target; follow progress on the [Roadmap project](https://github.com/orgs/sneakercreepers/projects/1) and the [v0.1 milestone](https://github.com/sneakercreepers/creep/milestones).
 
 ---
 
