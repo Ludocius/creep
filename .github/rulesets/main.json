@@ -13,7 +13,6 @@
     { "type": "deletion" },
     { "type": "non_fast_forward" },
     { "type": "required_linear_history" },
-    { "type": "required_signatures" },
     {
       "type": "pull_request",
       "parameters": {
@@ -21,7 +20,9 @@
         "dismiss_stale_reviews_on_push": true,
         "require_code_owner_review": false,
         "require_last_push_approval": false,
+        "require_extra_approval_for_unattributed_changes": false,
         "required_review_thread_resolution": true,
+        "required_reviewers": [],
         "allowed_merge_methods": ["squash"]
       }
     },

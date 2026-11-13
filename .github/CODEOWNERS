@@ -9,6 +9,8 @@
 /internal/planner/       @Ludocius
 /prompts/                @Ludocius
 /.github/workflows/      @Ludocius
+/.github/rulesets/       @Ludocius
+/.github/settings/       @Ludocius
 /.goreleaser.yaml        @Ludocius
 
 # Guardrails: lint rules, build checks, dependency budget and ADRs
