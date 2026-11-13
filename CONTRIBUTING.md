@@ -36,7 +36,7 @@ go test ./...                                   # replays deterministically, no 
 - One logical change per PR. Small PRs get reviewed faster.
 - Branch from `main`. PRs are squash-merged; `main` has linear history.
 - Title in [Conventional Commits](https://www.conventionalcommits.org/) format: `feat(redact): detect JWTs`.
-- **Signed commits** (SSH or GPG) are required. See [GitHub docs](https://docs.github.com/authentication/managing-commit-signature-verification).
+- **Signed commits** (SSH or GPG) are recommended and will become required on `main` once the maintainer has signing set up ([#49](https://github.com/Ludocius/creep/issues/49)). See [GitHub docs](https://docs.github.com/authentication/managing-commit-signature-verification).
 - **DCO**: every commit needs `Signed-off-by` (`git commit -s`). By signing off you certify the [Developer Certificate of Origin](https://developercertificate.org/). We do not use a CLA.
 - Add a release-note label (see below).
 
@@ -53,6 +53,35 @@ go test ./...                                   # replays deterministically, no 
 | `type/chore`, `skip-changelog` | hidden |
 
 `affects-results` matters: when prompts, rules or calibration change, users' results and CI baselines can shift.
+
+## Repository rules
+
+Rulesets live in [`.github/rulesets/`](.github/rulesets/) and are applied with `make rulesets` (creates or updates by name), which also applies [`.github/settings/`](.github/settings/): Actions permissions (full-SHA pinning required) and the `release` environment. Change them by PR, never only in the UI.
+
+- `main`: PR required, squash only, linear history, no force push or deletion, and all CI jobs green. No bypass actors, not even admins.
+- `release-tags`: `v*` tags can never be moved or deleted. `release-tag-creation`: only repository admins can create `v*` tags.
+- Single-maintainer phase: PRs need 0 approvals and code-owner review is off. With two or more maintainers, raise approvals and turn on `require_code_owner_review` (see [GOVERNANCE.md](GOVERNANCE.md)).
+
+## Releasing
+
+Maintainers only. Versions follow [SemVer](https://semver.org/); pre-releases are `vX.Y.Z-rc.N`. Before 1.0 a minor release may break things and says so under ⚠️ Breaking changes.
+
+1. Close the milestone: every issue done or moved.
+2. Tag a release candidate on `main` and push it: `git tag -a v0.1.0-rc.1 -m v0.1.0-rc.1 && git push origin v0.1.0-rc.1`.
+3. Verify the artifacts, checksums, provenance and draft notes. Notes come from [`.github/release.yml`](.github/release.yml); anything labelled `affects-results` must be called out, because users' results and baselines will shift.
+4. Tag the final version on the same commit: `v0.1.0`.
+5. Approve the `release` environment deployment. The environment only accepts `v*` tags, needs the maintainer's approval (admins cannot bypass it) and is the only place release credentials (OIDC) are available.
+
+Tags are immutable (ruleset) and so are published releases (immutable releases are enabled). A mistake means a new version, never a moved tag.
+
+Rulesets cannot enforce "a `v*` tag points to a commit on `main`". The release workflow ([#19](https://github.com/Ludocius/creep/issues/19)) checks ancestry before building and refuses a tag whose commit is on neither `main` nor a `release/*` branch.
+
+**Hotfix** (patch without shipping unreleased work from `main`):
+
+1. Fix on `main` first, through a normal PR.
+2. Branch from the release tag: `git switch -c release/v0.1 v0.1.0` (reuse the branch if it exists) and push it.
+3. Cherry-pick the squash commit: `git cherry-pick -x -s <sha>`, then push.
+4. Tag the patch from that branch: `git tag -a v0.1.1 -m v0.1.1 && git push origin v0.1.1`, then follow Releasing steps 3 to 5.
 
 ## AI-assisted contributions
 

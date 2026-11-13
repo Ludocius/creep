@@ -23,7 +23,7 @@ Sustained, high-quality contributions over at least three months, including revi
 
 ## Review rules
 
-- Single-maintainer phase: PR + required checks; the maintainer may bypass review.
+- Single-maintainer phase: PR + required checks; review requires 0 approvals and code-owner review is off. Nobody bypasses the checks.
 - With two or more maintainers: two approvals for security-sensitive paths (see `.github/CODEOWNERS`).
 
 ## Code of Conduct

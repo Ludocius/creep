@@ -14,7 +14,7 @@ EXE := .exe
 endif
 BIN := bin/creep$(EXE)
 
-.PHONY: build test check fmt-check tidy vet budget clean
+.PHONY: build test check fmt-check tidy vet budget rulesets clean
 
 # VERSION and COMMIT reach the recipe through the environment, never as shell
 # text, and are filtered to SAFE_CHARS before use.
@@ -51,6 +51,31 @@ vet:
 # file length, workflow pinning.
 budget:
 	go run ./internal/tools/budget
+
+# Creates or updates each ruleset in .github/rulesets (file name = ruleset name),
+# then applies .github/settings, so re-running after a reviewed change is safe.
+# Needs gh authenticated as an admin.
+REPO ?= Ludocius/creep
+rulesets: repo-settings
+	@for f in .github/rulesets/*.json; do \
+		name="$$(basename "$$f" .json)"; \
+		id="$$(gh api "repos/$(REPO)/rulesets" --jq ".[] | select(.name == \"$$name\") | .id")" || exit 1; \
+		if [ -n "$$id" ]; then \
+			echo "update $$name ($$id)"; gh api -X PUT "repos/$(REPO)/rulesets/$$id" --input "$$f" >/dev/null || exit 1; \
+		else \
+			echo "create $$name"; gh api -X POST "repos/$(REPO)/rulesets" --input "$$f" >/dev/null || exit 1; \
+		fi; \
+	done
+
+# The release environment only deploys v* tags. The tag policy is added only when
+# missing because POSTing a duplicate fails.
+repo-settings:
+	@echo "update actions permissions"; gh api -X PUT "repos/$(REPO)/actions/permissions" --input .github/settings/actions-permissions.json >/dev/null
+	@echo "update environment release"; gh api -X PUT "repos/$(REPO)/environments/release" --input .github/settings/release-environment.json >/dev/null
+	@n="$$(gh api "repos/$(REPO)/environments/release/deployment-branch-policies" --jq '[.branch_policies[] | select(.name == "v*" and .type == "tag")] | length')" || exit 1; \
+	if [ "$$n" = 0 ]; then \
+		echo "add tag policy v*"; gh api -X POST "repos/$(REPO)/environments/release/deployment-branch-policies" -f name='v*' -f type=tag >/dev/null || exit 1; \
+	fi
 
 clean:
 	rm -f bin/creep bin/creep.exe coverage.out
