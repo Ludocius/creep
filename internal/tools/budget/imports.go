@@ -40,9 +40,8 @@ var execAllowedInTests = []string{
 // syscallAllowed lists module-relative files that may import syscall, each
 // with its reason. Files, not packages, so new socket code needs a review here.
 var syscallAllowed = map[string]string{
-	"internal/cli/open_unix.go":       "O_NONBLOCK open so a FIFO argument cannot hang the CLI",
-	"internal/cli/fifo_unix_test.go":  "creates a FIFO with syscall.Mkfifo",
-	"internal/gateway/egress_unix.go": "O_NOFOLLOW/O_NONBLOCK open and Stat_t owner and link count of egress.log",
+	"internal/cli/open_unix.go":      "O_NONBLOCK open so a FIFO argument cannot hang the CLI",
+	"internal/cli/fifo_unix_test.go": "creates a FIFO with syscall.Mkfifo",
 }
 
 // collectSources parses the imports and watched calls of every .go file under fsys, including

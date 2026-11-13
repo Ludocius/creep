@@ -217,6 +217,10 @@ func post(ctx context.Context, client *http.Client, call Call) (int, []byte, err
 	if err != nil {
 		return 0, nil, errors.New("build request: invalid endpoint") // the parse error quotes the URL
 	}
+	// Without GetBody the transport cannot replay the body (HTTP/1 retry on
+	// a dropped reused connection, HTTP/2 retry, redirects), so each logged
+	// request line is sent at most once.
+	req.GetBody = nil
 	for k, v := range call.Header {
 		req.Header[k] = v
 	}

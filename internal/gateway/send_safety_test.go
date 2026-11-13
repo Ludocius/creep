@@ -6,8 +6,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -78,6 +81,57 @@ func TestErrorsHideCredentials(t *testing.T) {
 				t.Fatalf("err = %v; want an error without the credential", err)
 			}
 		})
+	}
+}
+
+// dropSecond answers the first request and closes the connection after
+// reading the second request's body, the case where http.Transport retries
+// an idempotent request on a fresh connection.
+type dropSecond struct {
+	mu     sync.Mutex
+	bodies int
+}
+
+func (d *dropSecond) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_, _ = io.ReadAll(r.Body)
+	d.mu.Lock()
+	d.bodies++
+	n := d.bodies
+	d.mu.Unlock()
+	if n != 2 {
+		_, _ = io.WriteString(w, "ok")
+		return
+	}
+	if conn, _, err := http.NewResponseController(w).Hijack(); err == nil {
+		_ = conn.Close()
+	}
+}
+
+// A transport retry would send a body the log shows once: bodies received
+// must equal request lines.
+func TestTransportRetryDoesNotResend(t *testing.T) {
+	h := &dropSecond{}
+	srv := httptest.NewServer(h)
+	t.Cleanup(srv.Close)
+	port := serverPort(t, srv)
+	client := newTestClient(t, Options{Allow: []string{"127.0.0.1:" + port}})
+	dir := runDir(t)
+	l := openLog(t, dir)
+	call := testCall("http://127.0.0.1:" + port + "/v1")
+	call.Header.Set("Idempotency-Key", "k1")
+	for range 2 {
+		_, _ = l.Send(context.Background(), client, call)
+	}
+	requests := 0
+	for _, line := range readLines(t, dir) {
+		if line["type"] == "request" {
+			requests++
+		}
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.bodies != requests {
+		t.Fatalf("server received %d bodies, log has %d request lines", h.bodies, requests)
 	}
 }
 
