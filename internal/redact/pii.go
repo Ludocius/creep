@@ -86,7 +86,10 @@ func validDNI(s string) bool {
 // validNIE maps the X/Y/Z prefix to 0/1/2 and applies the DNI check.
 func validNIE(s string) bool {
 	prefix := strings.IndexByte("XYZ", upper(s[0]))
-	return dniLetterOK(string(rune('0'+prefix))+digitsOnly(s), s[len(s)-1])
+	if prefix < 0 {
+		return false
+	}
+	return dniLetterOK("012"[prefix:prefix+1]+digitsOnly(s), s[len(s)-1])
 }
 
 func dniLetterOK(digits string, letter byte) bool {

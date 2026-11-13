@@ -16,7 +16,7 @@ const (
 const valueStop = "\\s\"'`,;"
 
 // credentialDetectors cover credentials the gitleaks rules miss because they
-// have no fixed format: they are recognised by where they sit, not by shape.
+// have no fixed format: they are recognized by where they sit, not by shape.
 var credentialDetectors = []patternDetector{
 	{
 		// scheme://[user]:password@host. The password runs to the last "@"

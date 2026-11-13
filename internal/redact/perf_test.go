@@ -3,7 +3,6 @@ package redact
 import (
 	"io/fs"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -86,11 +85,18 @@ func repoChunks(tb testing.TB) []string {
 	tb.Helper()
 	var chunks []string
 	var cur strings.Builder
-	err := filepath.WalkDir("../..", func(path string, d fs.DirEntry, err error) error {
+	// A root-scoped walk cannot follow a symlink out of the repository.
+	root, err := os.OpenRoot("../..")
+	if err != nil {
+		tb.Fatal(err)
+	}
+	defer root.Close()
+	repo := root.FS()
+	err = fs.WalkDir(repo, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") {
 			return err
 		}
-		data, err := os.ReadFile(path)
+		data, err := fs.ReadFile(repo, path)
 		for _, line := range strings.SplitAfter(string(data), "\n") {
 			if cur.Len()+len(line) > MaxInputBytes {
 				chunks = append(chunks, cur.String())

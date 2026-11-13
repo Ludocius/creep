@@ -2,11 +2,13 @@ package redact
 
 import (
 	"bytes"
+	"encoding"
 	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync"
@@ -183,8 +185,32 @@ func TestRedactTooLarge(t *testing.T) {
 	}
 }
 
+// encoders reach a value only through exported fields or an encoding
+// method; the Redactor must offer neither.
+func assertNotEncodable(t *testing.T) {
+	t.Helper()
+	typ := reflect.TypeFor[Redactor]()
+	for i := range typ.NumField() {
+		if f := typ.Field(i); f.IsExported() {
+			t.Errorf("Redactor has exported field %s", f.Name)
+		}
+	}
+	encoders := []reflect.Type{
+		reflect.TypeFor[json.Marshaler](),
+		reflect.TypeFor[encoding.TextMarshaler](),
+		reflect.TypeFor[encoding.BinaryMarshaler](),
+		reflect.TypeFor[gob.GobEncoder](),
+	}
+	for _, enc := range encoders {
+		if typ.Implements(enc) || reflect.PointerTo(typ).Implements(enc) {
+			t.Errorf("Redactor implements %s", enc)
+		}
+	}
+}
+
 // The map must not leak through printing or encoding.
 func TestRedactorDoesNotExposeMap(t *testing.T) {
+	assertNotEncodable(t)
 	rng := rand.New(rand.NewPCG(9, 10))
 	aws := fakeAWS(rng)
 	r := newRedactor(t)
@@ -194,10 +220,9 @@ func TestRedactorDoesNotExposeMap(t *testing.T) {
 	for _, verb := range []string{"%v", "%+v", "%#v", "%s", "%q"} {
 		outputs = append(outputs, fmt.Sprintf(verb, r))
 	}
-	js, _ := json.Marshal(r)
 	var g bytes.Buffer
 	_ = gob.NewEncoder(&g).Encode(r)
-	outputs = append(outputs, string(js), g.String())
+	outputs = append(outputs, g.String())
 	for _, o := range outputs {
 		if strings.Contains(o, aws) || strings.Contains(o, "SECRET_") {
 			t.Errorf("Redactor exposed its map: %q", o)

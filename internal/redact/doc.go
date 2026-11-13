@@ -25,9 +25,10 @@
 //     masked through the matching END line or the end of the fragment; before
 //     an END line, back to its BEGIN line or the start of the fragment. A key
 //     body with neither (a middle fragment) is masked as a run of two or more
-//     lines ending in a base64 token of one length between 40 and 76, or one
-//     such line alone at the start or end of the fragment; the run takes in
-//     the shorter last line and a partial first line. Prefixed digests
+//     lines ending in a base64 token of 40 to 76 characters (lengths may
+//     differ, since a boundary leaves partial lines), or one such line that
+//     reaches the start or end of the fragment, directly or through one short
+//     partial line; the run takes in a short line on either side. Prefixed digests
 //     (go.sum "h1:", "sha256:") and lowercase hex do not count. This can mask
 //     ordinary data, which is the safe side.
 //

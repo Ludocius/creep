@@ -70,9 +70,10 @@ type bodyLine struct {
 }
 
 // findBodyRuns masks key bodies with no header or footer: two or more
-// consecutive lines ending in a base64 token of the same length (40 to 76),
-// or one such line alone at the start or end of the text, where a boundary
-// cut the key. The run takes in a shorter last line and a partial first line.
+// consecutive lines ending in a base64 token of 40 to 76 characters, of any
+// mix of lengths since a boundary can leave partial lines, or one such line
+// that touches the start or end of the text, where a boundary cut the key.
+// The run takes in a short line on either side.
 func findBodyRuns(text string) []span {
 	lines := bodyLines(text)
 	var out []span
@@ -82,8 +83,7 @@ func findBodyRuns(text string) []span {
 			i++
 			continue
 		}
-		cut := (i == 0 || i+n == len(lines)) && lines[i].pure
-		if n >= 2 || cut {
+		if n >= 2 || lines[i].pure && touchesEdge(lines, i, n) {
 			out = append(out, runSpan(lines, i, n))
 		}
 		i += n
@@ -91,31 +91,44 @@ func findBodyRuns(text string) []span {
 	return out
 }
 
-// runLength counts the full-size body lines of one length starting at i.
+// runLength counts the consecutive full-size body lines starting at i.
 func runLength(lines []bodyLine, i int) int {
-	size := lines[i].end - lines[i].start
-	if size < minBodyLine {
-		return 0
-	}
 	n := 0
-	for i+n < len(lines) && lines[i+n].end-lines[i+n].start == size {
+	for i+n < len(lines) && isFullSize(lines[i+n]) {
 		n++
 	}
 	return n
 }
 
-// runSpan covers lines[i:i+n], plus the shorter last line of a PEM body
-// after it and a partial line that a boundary left before it.
+func isFullSize(line bodyLine) bool {
+	size := line.end - line.start
+	return minBodyLine <= size && size <= maxBodyLine
+}
+
+// isPartial reports a short token alone on its line: what a boundary leaves
+// of a body line.
+func isPartial(line bodyLine) bool {
+	return line.pure && line.end > line.start
+}
+
+// touchesEdge reports whether lines[i:i+n] reach the start or end of the
+// text, directly or through one partial line.
+func touchesEdge(lines []bodyLine, i, n int) bool {
+	last := len(lines) - 1
+	atStart := i == 0 || i == 1 && isPartial(lines[0])
+	atEnd := i+n-1 == last || i+n == last && isPartial(lines[last])
+	return atStart || atEnd
+}
+
+// runSpan covers lines[i:i+n], plus the short line after it (the last line
+// of a PEM body, or a partial one a boundary left) and a partial line that
+// a boundary left before it.
 func runSpan(lines []bodyLine, i, n int) span {
 	sp := span{start: lines[i].start, end: lines[i+n-1].end, label: privateKeyLabel}
-	size := lines[i].end - lines[i].start
-	if i+n < len(lines) {
-		next := lines[i+n]
-		if next.pure && next.end > next.start && next.end-next.start <= size {
-			sp.end = next.end
-		}
+	if i+n < len(lines) && isPartial(lines[i+n]) {
+		sp.end = lines[i+n].end
 	}
-	if i == 1 && lines[0].pure && lines[0].end > lines[0].start {
+	if i == 1 && isPartial(lines[0]) {
 		sp.start = lines[0].start
 	}
 	return sp

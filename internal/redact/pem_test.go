@@ -205,3 +205,36 @@ func TestPrivateKeyDetectorIgnoresCode(t *testing.T) {
 		}
 	}
 }
+
+// Any short excerpt of a key body, cut at any byte, must leak nothing: the
+// partial lines at its edges must not leave a full middle line unmasked.
+func TestRedactKeyBodyWindows(t *testing.T) {
+	const shards = 8
+	keys := []struct {
+		name  string
+		width int
+	}{{"RSA PKCS8", 64}, {"OPENSSH", 70}}
+	for n, k := range keys {
+		body := fakeBody(rand.New(rand.NewPCG(33, uint64(n))), 1700, k.width)
+		text := strings.Join(body, "\n")
+		set := windows(body)
+		for shard := range shards {
+			t.Run(fmt.Sprint(k.name, "/", shard), func(t *testing.T) {
+				t.Parallel()
+				for size := 120 + 20*shard; size <= 400; size += 20 * shards {
+					assertWindowsHidden(t, set, text, size)
+				}
+			})
+		}
+	}
+}
+
+func assertWindowsHidden(t *testing.T, set map[string]bool, text string, size int) {
+	t.Helper()
+	for i := 0; i+size <= len(text); i++ {
+		window := text[i : i+size]
+		if w := leakedWindow(set, mustRedact(t, newRedactor(t), window)); w != "" {
+			t.Fatalf("window %d+%d leaked %q from %q", i, size, w, window)
+		}
+	}
+}
