@@ -21,6 +21,20 @@ const docsOnlyRule = "Documentation-only changes run only the auditor"
 
 const auditorTriage = "The auditor triages every open finding"
 
+// pentesterScope and pentesterIsolation pin ADR 0002: the pentester is the one
+// reviewer kept independent, and only maintainers decide when it must run.
+const pentesterScope = "The pentester runs only when the issue carries the `security-sensitive` label, which only maintainers apply"
+
+const pentesterIsolation = "The pentester gets no shared context"
+
+// sharedContext and auditorEscalation complete ADR 0002: the escalation is the
+// backstop for a missing label, so dropping it must fail CI like the rest.
+const sharedContext = "Developer, tester and auditor share context"
+
+const auditorEscalation = "If the auditor sees security impact in an unlabeled change, it asks a maintainer to add the label"
+
+const templateSkip = "skipped because the issue is not labeled `security-sensitive`"
+
 // maxPolicyBytes bounds reads so a huge policy file cannot stall CI.
 const maxPolicyBytes = 1 << 20
 
@@ -28,15 +42,18 @@ const maxPolicyBytes = 1 << 20
 var requiredPolicy = map[string][]string{
 	"AGENTS.md": {
 		agentLoop,
-		"no shared context",
+		sharedContext,
+		pentesterIsolation,
+		pentesterScope,
+		auditorEscalation,
 		"Confirmed Critical or High blocks the merge",
 		"Maximum 3 cycles",
 		"Changing or removing this loop needs an ADR",
 		docsOnlyRule,
 		auditorTriage,
 	},
-	"CONTRIBUTING.md":                  {agentLoop, "Changing or removing this loop needs an ADR", docsOnlyRule, auditorTriage},
-	".github/PULL_REQUEST_TEMPLATE.md": {agentLoop},
+	"CONTRIBUTING.md":                  {agentLoop, sharedContext, pentesterIsolation, pentesterScope, auditorEscalation, "Changing or removing this loop needs an ADR", docsOnlyRule, auditorTriage},
+	".github/PULL_REQUEST_TEMPLATE.md": {agentLoop, "no shared context", templateSkip},
 	"CLAUDE.md":                        {"@AGENTS.md"},
 }
 
