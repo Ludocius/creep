@@ -21,6 +21,12 @@ const docsOnlyRule = "Documentation-only changes run only the auditor"
 
 const auditorTriage = "The auditor triages every open finding"
 
+// pentesterScope and pentesterIsolation pin ADR 0002: the pentester is the one
+// reviewer kept independent, and only maintainers decide when it must run.
+const pentesterScope = "The pentester runs only when the issue carries the `security-sensitive` label, which only maintainers apply"
+
+const pentesterIsolation = "The pentester gets no shared context"
+
 // maxPolicyBytes bounds reads so a huge policy file cannot stall CI.
 const maxPolicyBytes = 1 << 20
 
@@ -28,15 +34,16 @@ const maxPolicyBytes = 1 << 20
 var requiredPolicy = map[string][]string{
 	"AGENTS.md": {
 		agentLoop,
-		"no shared context",
+		pentesterIsolation,
+		pentesterScope,
 		"Confirmed Critical or High blocks the merge",
 		"Maximum 3 cycles",
 		"Changing or removing this loop needs an ADR",
 		docsOnlyRule,
 		auditorTriage,
 	},
-	"CONTRIBUTING.md":                  {agentLoop, "Changing or removing this loop needs an ADR", docsOnlyRule, auditorTriage},
-	".github/PULL_REQUEST_TEMPLATE.md": {agentLoop},
+	"CONTRIBUTING.md":                  {agentLoop, pentesterIsolation, pentesterScope, "Changing or removing this loop needs an ADR", docsOnlyRule, auditorTriage},
+	".github/PULL_REQUEST_TEMPLATE.md": {agentLoop, "no shared context"},
 	"CLAUDE.md":                        {"@AGENTS.md"},
 }
 

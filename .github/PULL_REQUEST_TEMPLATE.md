@@ -38,4 +38,5 @@ Closes #
 - [ ] No AI assistance
 - [ ] AI-assisted (tool/model: ______ ). I reviewed and understand every line I'm signing off.
 - [ ] AI-assisted: ran the agent loop developer → tester → pentester → auditor. Tester verdict, security review and auditor decision: <!-- links -->
+- [ ] The pentester ran with no shared context, or was skipped because the issue is not labeled `security-sensitive`.
 - [ ] Documentation-only (`*.md` or `docs/`): ran only the auditor. Auditor decision: <!-- link -->
