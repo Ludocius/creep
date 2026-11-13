@@ -28,6 +28,10 @@
 //   - The project file comes from the repository being scanned, which is
 //     untrusted, so it cannot set where code is sent (model.endpoint,
 //     egress.allow).
+//   - Consent to send code to an endpoint is not a config key: only the
+//     policy's consent list grants it (PolicyConsent), plus, outside CI,
+//     the user's own answers that the gateway stores. InCI is the single
+//     definition of a CI run.
 //
 // The package does no file I/O: callers read the files (internal/cli does it
 // without blocking on FIFOs) and pass the bytes in.

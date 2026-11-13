@@ -64,7 +64,24 @@
 // The body itself is stored in <run>/payloads/<id>.payload (mode 0600, in a
 // 0700 directory), so the user can check the hash and read what was sent.
 //
-// Seams for the rest of #3: consent (#82) gates Send before logRequest;
-// Call.Payload and Call.Redactions come from the run's Redactor (#83);
-// the token budget (#84) checks Call before sending and reads Usage.
+// Consent gates every Send before the payload file, the request line or any
+// connection. It is per endpoint origin (scheme, host and effective port,
+// normalized like egress.allow), never global:
+//   - In CI (config.InCI) consent comes only from the policy file's consent
+//     list; nothing prompts and the local store is ignored. A missing entry
+//     returns a *ConsentError whose ExitCode is 2.
+//   - Locally the policy, then the user's consent store (a 0600 JSON file of
+//     origins, replaced atomically, refused when it is a link, another
+//     user's or writable by others), then the injected Prompt. A yes is
+//     stored, so each endpoint is asked once; a no is remembered for the
+//     run only. TerminalPrompt declines without reading when stdin is not a
+//     terminal.
+//   - A refusal is not written to egress.log: the log records what was
+//     attempted, and a refused call attempts nothing. The caller reports it.
+//   - The scanned repository cannot grant consent: creep.yaml has no consent
+//     key and the store lives in the user's directory, never the repo.
+//
+// Seams for the rest of #3: Call.Payload and Call.Redactions come from the
+// run's Redactor (#83); the token budget (#84) checks Call before sending
+// and reads Usage.
 package gateway

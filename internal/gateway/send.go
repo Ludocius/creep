@@ -96,9 +96,10 @@ type resultLine struct {
 	Tokens  *Usage `json:"tokens,omitempty"`
 }
 
-// Send records call in the log, then POSTs it with client and records the
-// result. Write-ahead: the payload file and the request line are written and
-// synced first, and any failure there returns before the request is built,
+// Send checks consent for the endpoint's origin, records call in the log,
+// then POSTs it with client and records the result. Write-ahead: the
+// payload file and the request line are written and synced first, and any
+// failure there returns before the request is built,
 // so nothing is sent that egress.log does not show. A failure to write the
 // result line returns an error and no reply, so an unlogged answer is never
 // used.
@@ -114,6 +115,9 @@ func (l *EgressLog) Send(ctx context.Context, client *http.Client, call Call) (*
 	if err != nil {
 		return nil, err
 	}
+	if err := l.checkConsent(call.Endpoint); err != nil {
+		return nil, err
+	}
 	id, err := l.logRequest(call, endpoint)
 	if err != nil {
 		return nil, err
@@ -126,6 +130,21 @@ func (l *EgressLog) Send(ctx context.Context, client *http.Client, call Call) (*
 		return nil, fmt.Errorf("gateway call %s: %w", id, sendErr)
 	}
 	return &Reply{ID: id, Status: status, Body: body}, nil
+}
+
+// checkConsent runs before the payload file, the request line or any
+// connection, so a refused call leaves no trace in the run directory:
+// egress.log records only what was attempted, and a refusal is reported to
+// the caller as a *ConsentError instead.
+func (l *EgressLog) checkConsent(endpoint string) error {
+	if l.consent == nil {
+		return fmt.Errorf("gateway call: %w", ErrNoConsent)
+	}
+	u, _ := url.Parse(endpoint) // checkCall parsed it already
+	if err := l.consent.check(u); err != nil {
+		return fmt.Errorf("gateway call: %w", err)
+	}
+	return nil
 }
 
 // checkCall validates the logged labels and returns the endpoint as logged:

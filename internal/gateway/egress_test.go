@@ -78,7 +78,7 @@ func TestOpenRefusesUnsafePaths(t *testing.T) {
 				t.Skip("Windows file modes do not express ACLs")
 			}
 			dir := tt.prepare(t, runDir(t))
-			if l, err := OpenEgressLog(dir); err == nil {
+			if l, err := OpenEgressLog(dir, nil); err == nil {
 				_ = l.Close()
 				t.Fatal("OpenEgressLog: want error")
 			}
@@ -89,7 +89,7 @@ func TestOpenRefusesUnsafePaths(t *testing.T) {
 func TestUnsafePathError(t *testing.T) {
 	dir := runDir(t)
 	mkdir(t, dir, egressLogName)
-	if _, err := OpenEgressLog(dir); !errors.Is(err, ErrUnsafeLogPath) {
+	if _, err := OpenEgressLog(dir, nil); !errors.Is(err, ErrUnsafeLogPath) {
 		t.Fatalf("err = %v, want ErrUnsafeLogPath", err)
 	}
 }
@@ -162,7 +162,7 @@ func TestOpenRace(t *testing.T) {
 					t.Fatal(err)
 				}
 			})
-			if l, err := OpenEgressLog(dir); err == nil {
+			if l, err := OpenEgressLog(dir, nil); err == nil {
 				_ = l.Close()
 				t.Fatal("OpenEgressLog: want error")
 			}
@@ -204,7 +204,7 @@ func TestOpenRefusesSharedLog(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := runDir(t)
 			tt.prepare(t, writeFile(t, dir, egressLogName, 0o600))
-			if _, err := OpenEgressLog(dir); !errors.Is(err, ErrUnsafeLogPath) {
+			if _, err := OpenEgressLog(dir, nil); !errors.Is(err, ErrUnsafeLogPath) {
 				t.Fatalf("err = %v, want ErrUnsafeLogPath", err)
 			}
 		})

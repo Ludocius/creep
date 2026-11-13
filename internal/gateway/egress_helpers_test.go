@@ -81,7 +81,7 @@ func runDir(t *testing.T) string {
 
 func openLog(t *testing.T, dir string) *EgressLog {
 	t.Helper()
-	l, err := OpenEgressLog(dir)
+	l, err := OpenEgressLog(dir, allowAllConsent(t))
 	if err != nil {
 		t.Fatalf("OpenEgressLog: %v", err)
 	}

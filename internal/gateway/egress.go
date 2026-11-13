@@ -37,6 +37,7 @@ type EgressLog struct {
 	f         *os.File
 	payloads  *os.Root // held open, so swapping the path for a link later has no effect
 	freshLine bool     // the file may not end in '\n': start the next line with one
+	consent   *Consent // gates every Send; nil refuses every call
 }
 
 // OpenEgressLog opens <runDir>/egress.log for appending, creating it with
@@ -51,7 +52,10 @@ type EgressLog struct {
 // swap in between; a new log is created with O_EXCL, which never follows a
 // link. Windows file modes do not express ACLs, so there only the type and
 // same-file checks apply.
-func OpenEgressLog(runDir string) (*EgressLog, error) {
+//
+// consent gates every Send before anything is written or sent; a nil
+// consent refuses every call.
+func OpenEgressLog(runDir string, consent *Consent) (*EgressLog, error) {
 	if _, err := checkDir(runDir, 0o022); err != nil {
 		return nil, err
 	}
@@ -64,6 +68,7 @@ func OpenEgressLog(runDir string) (*EgressLog, error) {
 		_ = payloads.Close()
 		return nil, err
 	}
+	l.consent = consent
 	return l, nil
 }
 
@@ -107,7 +112,7 @@ func checkDir(path string, mask fs.FileMode) (fs.FileInfo, error) {
 	if !info.IsDir() {
 		return nil, fmt.Errorf("egress log dir %q: not a directory: %w", path, ErrUnsafeLogPath)
 	}
-	return info, checkAccess(path, info, mask)
+	return info, checkAccess(path, info, mask, ErrUnsafeLogPath)
 }
 
 func openPayloadDir(path string) (*os.Root, error) {
@@ -134,15 +139,15 @@ func openPayloadDir(path string) (*os.Root, error) {
 // checkAccess refuses another user's file and modes with any bit in mask.
 // Skipped on Windows, where Go reports 0666 or 0444 for every file whatever
 // its ACL says and files have no Unix owner.
-func checkAccess(path string, info fs.FileInfo, mask fs.FileMode) error {
+func checkAccess(path string, info fs.FileInfo, mask fs.FileMode, unsafe error) error {
 	if runtime.GOOS == "windows" {
 		return nil
 	}
 	if info.Mode().Perm()&mask != 0 {
-		return fmt.Errorf("%q has mode %v: %w", path, info.Mode().Perm(), ErrUnsafeLogPath)
+		return fmt.Errorf("%q has mode %v: %w", path, info.Mode().Perm(), unsafe)
 	}
 	if !ownedBySelf(info) {
-		return fmt.Errorf("%q is owned by another user: %w", path, ErrUnsafeLogPath)
+		return fmt.Errorf("%q is owned by another user: %w", path, unsafe)
 	}
 	return nil
 }
@@ -189,7 +194,7 @@ func checkLogFile(path string, info fs.FileInfo) error {
 	if runtime.GOOS != "windows" && linkCount(info) != 1 {
 		return fmt.Errorf("egress log %q has other hard links: %w", path, ErrUnsafeLogPath)
 	}
-	return checkAccess(path, info, 0o077)
+	return checkAccess(path, info, 0o077, ErrUnsafeLogPath)
 }
 
 // sameFile refuses an open file that is not the one Lstat saw, which means
