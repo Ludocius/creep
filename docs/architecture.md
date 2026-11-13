@@ -1,0 +1,138 @@
+# Architecture
+
+This is the source of truth for what each part of `creep` does, which way dependencies may point, and which contracts are stable. Decisions that change it go through an ADR ([index](#adr-index)). The package-by-package list is generated in [map.md](map.md).
+
+## 1. Context
+
+```
+            ┌──────────────┐  local repo (untrusted content)
+ developer ─┤              │◄──────────────────────────────
+ or CI      │  creep (one  │
+ (flags,    │  Go binary)  │──HTTPS──► model endpoints (allowlisted, consented)
+  config,   │              │──API────► Docker/Podman (v0.2, sandbox only)
+  policy)   └──────┬───────┘
+                   ▼
+   reports (SARIF/JSON/MD) · run state (JSONL) · egress.log · payloads/
+```
+
+- The scanned repository is **untrusted input**. Its text can only reach the reader and the redacted gateway payload. It can never reach the planner, a shell or config that loosens a gate.
+- The only network peers are configured model endpoints. There is no telemetry or update check by default.
+- There is no server and no database. Each run is independent; state is files.
+
+## 2. Pipeline
+
+| Step | Component | Input | Output | Version |
+|---|---|---|---|---|
+| 1 | calibrate | model contract, seeded templates | per-class scores, tier S/M/L | v0.1 |
+| 2 | static | repo files | route/sink/auth graph as **IDs and enums** | v0.1 |
+| 3 | planner | IDs, enums, booleans, calibration | prioritized hypotheses | v0.1 |
+| 4 | reader | redacted slices + hypothesis | closed-schema verdicts | v0.1 |
+| 5 | sandbox + verify | app build, PoC template | verified / discarded | v0.2 |
+| 6 | fix | verified finding | suggested diff | v3 |
+| 7 | report | run state | SARIF, JSON, Markdown (HTML v1.0) | v0.1 |
+
+Every model call in steps 1, 3 and 4 goes through the gateway, in this order: `redact.File` → fragment → consent → allowlisted dialer → `egress.log` write-ahead → send.
+
+## 3. Components and layers
+
+A package may import only packages in **lower** layers and only those listed in its row. `make budget` enforces this table (#119), so this block is data and must stay parseable.
+
+```layers
+# layer  package                 may import (internal only)
+0        internal/exitcode       -
+0        internal/buildinfo      -
+1        internal/config         exitcode
+1        internal/redact         -
+2        internal/gateway        config redact exitcode
+3        internal/models         gateway config
+3        internal/state          config
+4        internal/static         state config
+4        internal/calibrate      models state config
+4        internal/planner        models state config
+4        internal/reader         models redact state config
+5        internal/report         state config buildinfo
+5        internal/sandbox        state config
+5        internal/verify         sandbox state config
+6        internal/cli            *
+6        internal/mcp            report state config
+7        cmd/creep               cli
+-        internal/tools/*        (build tooling; never imported by the product)
+```
+
+| Package | Responsibility | Invariants it owns | State |
+|---|---|---|---|
+| `exitcode` | Process exit codes | 0 ok · 1 gate · 2 config/consent · 3 model/sandbox | ✅ |
+| `buildinfo` | Version and provenance strings | none | ✅ |
+| `config` | Five config layers, org policy, CI detection | Project file never loosens CI gates or grants consent (#61, #82) | ✅ (#62, #63 open) |
+| `redact` | Secret and PII redaction with stable markers | Whole file redacted before fragmenting; linear time; `ErrRunFull` fails closed | ✅ (follow-ups open) |
+| `gateway` | **Only** network path | Allowlist before DNS, TLS, pinning, no redirects, consent, write-ahead `egress.log`, opaque client | 🔶 #83, #84 open |
+| `models` | HTTP and command contracts, tool canary | No provider-specific code; model output never executed | ⬜ #5, #6 |
+| `state` | JSONL run state, `--record`, `--replay`, resume | Append-only; replay is deterministic | ⬜ #8 |
+| `static` | tree-sitter (WASM) routes, sinks and auth; optional scanners | Output is IDs and enums only | ⬜ #85–#88, #10 |
+| `calibrate` | Seeded tasks, per-class score, tier, 30-day cache | Same seed gives the same tasks; runs through gateway | ⬜ #89–#91 |
+| `planner` | Hypotheses from IDs and enums | **Never receives repository text** (no import of `reader`, `redact`, `static` text types) | ⬜ #12 |
+| `reader` | Quarantined reading, closed output schema | Output never flows to planner as text | ⬜ #92–#95 |
+| `report` | SARIF, JSON (`schema_version`), Markdown, coverage | Every class is covered, partial or not evaluated | ⬜ #14 |
+| `sandbox`, `verify` | Container runtime, internal network, PoC runs | No internet; never on the host | ⬜ v0.2 |
+| `mcp` | Read-only MCP server | No sandbox, no writes | ⬜ v0.3 |
+| `cli` | Commands and flags (`flag`, no framework) | Unimplemented commands fail closed | ✅ |
+
+`planner` and `reader` must never import each other. This prompt-injection boundary is the one with the highest stakes in the layering.
+
+## 4. Stable contracts
+
+These follow semver once v1.0 ships. Before then, any change needs a note in the PR and, if the change breaks a contract, an ADR.
+
+| Contract | Where | Versioning |
+|---|---|---|
+| CLI flags and exit codes | `cli`, `exitcode` | semver |
+| Config and policy schema | `config` | `version:` key |
+| JSON report | `report` | `schema_version` |
+| SARIF | `report` | SARIF 2.1.0 |
+| Run state (JSONL) | `state` | per-line `v` |
+| `egress.log` line | `gateway` | additive fields only |
+| HTTP model contract | `models` | OpenAI-compatible + Anthropic |
+| Command model contract | `models` | stdin prompt, stdout JSON |
+| Recipes, presets, language kits | `recipes/`, `presets/`, kits | own `version:`; data, not code |
+| Prompts | `prompts/` | versioned per tier, token-budget test |
+
+## 5. Extension points
+
+Contributors add **data**, not core code:
+
+- **Presets** (`presets/*.yaml`): command lines for model CLIs. They are community-owned because they track third-party flags.
+- **Recipes** (v0.3): source, sink and hint records with fixtures, pinned by commit in `creep.lock`.
+- **Language kits**: grammar WASM + sources/sinks + PoC templates + vulnerable/safe fixtures. A kit enters only if its conformance test passes. v0.1 ships Python and JS/TS only.
+
+## 6. Maintainability matrix
+
+Evidence from 2026-11-13 (lines are source/test, churn is commits on `main`).
+
+| Component | Size | Churn | Open follow-ups | External load | Decision |
+|---|---|---|---|---|---|
+| `redact` | 1593 / 2565 | 3 | ~10 | none | **Simplify.** Freeze features after v0.1. Pin perf budgets with CI benchmarks. Close follow-ups in batches, not one per PR. |
+| `gateway` | 1671 / 2008 | 4 | 6 | Go `net/http` | **Keep.** Freeze the exported API after #84. Use a `go/types` API guard (#115). |
+| `tools/budget` | 1188 / 779 | 5 (highest) | 6 | none | **Trim.** The layer rule (#119) replaces ad-hoc import checks. The net source line count may not grow. |
+| `config` | 860 / 657 | 3 | 3 | YAML | **Keep.** |
+| `cli` | 727 / 655 | 3 | 1 | none | **Keep.** |
+| presets (#7) | — | — | — | CLI flags change often | **Defer to the community.** The core keeps only the two contracts. |
+| `static` grammars | — | — | — | grammar releases | **Kits with a conformance test.** No third language before v1.0. |
+| `calibrate` templates | — | — | — | none | **Keep** (core differentiator). Templates are versioned data. |
+| Agent loop | — | — | 14 Lows in one day | — | **Adjust.** The pentester runs per release ([ADR 0004](adr/0004-pentester-per-release.md)), and the auditor groups Lows per component in one living issue. |
+
+## 7. Non-goals
+
+- No `--url` and no scanning of targets that `creep` did not build from local source.
+- No server, no telemetry, no "enterprise edition".
+- No provider SDKs in the core, and no framework for the CLI.
+- No languages beyond Python and JS/TS before v1.0.
+- No automatic application of fixes.
+
+## ADR index
+
+| ADR | Decision |
+|---|---|
+| [0001](adr/0001-yaml-parser.md) | `go.yaml.in/yaml/v3` for config |
+| [0002](adr/0002-agent-loop-scope.md) | Shared context in the agent loop; pentester independent |
+| [0003](adr/0003-architecture-layers.md) | Layers, stable contracts, maintainability decisions, module path |
+| [0004](adr/0004-pentester-per-release.md) | Pentester once per version and on external PRs |
