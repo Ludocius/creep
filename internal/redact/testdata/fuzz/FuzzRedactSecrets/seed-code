@@ -1,0 +1,5 @@
+go test fuzz v1
+string("import \"os\"\n\nfunc load() string {\n\treturn os.Getenv(\"X\")\n}")
+string("// key: <SECRET_GITHUB_PAT_1> <ESC_SECRET_A_1>")
+uint64(42)
+uint8(1)

@@ -1,0 +1,48 @@
+// Package redact replaces secrets and personal data with stable markers before
+// any text leaves the machine.
+//
+// It exists because creep sends fragments of the scanned repository to a
+// model, and the repository can hold credentials and personal data. The
+// gateway runs every payload through a Redactor first (AGENTS.md invariant 2).
+//
+// Detection:
+//   - Secrets: the gitleaks default rules (rules/gitleaks.toml), vendored byte
+//     for byte from a pinned release and evaluated with the standard regexp
+//     package, so gitleaks is data, not a dependency. Version, URL and MIT
+//     license are in NOTICE; a test pins the file's SHA-256 and rule count.
+//   - PII: email addresses, card numbers (Luhn), US SSNs (dashed, SSA-valid
+//     ranges), Spanish DNI and NIE (control letter) and Brazilian CPF (two
+//     check digits). Checksums keep ordinary numbers in code unmasked.
+//
+// The rules file is read by a tiny reader for the TOML subset it uses
+// (toml.go) instead of a generator that converts it to JSON. Both need the same
+// parsing, but this way the embedded file stays identical to upstream and can
+// be verified by hash, there is no second artifact to keep in sync, and any
+// syntax outside the subset is an error caught by the tests. Only id, regex,
+// secretGroup and keywords are used. Keywords gate rules exactly as in
+// gitleaks (a rule runs only if one of its keywords occurs, case-insensitive);
+// without that, running every regex on every fragment is far too slow.
+// Entropy thresholds and allowlists are ignored on purpose: they exist to cut
+// false positives in reports, while a redactor should rather mask too much
+// than leak. Matches may overlap, so a lazy match opened by earlier text cannot
+// end inside a real secret and hide the rest of it. Like gitleaks, the masked
+// value is the secret group (or the first non-empty group), so variable names
+// and quotes around it stay readable for the model.
+//
+// Markers: each distinct value gets <SECRET_<RULE>_<N>> or <PII_<KIND>_<N>>,
+// numbered per kind, and keeps it for the life of the Redactor (one per run),
+// so the same secret has the same marker in every fragment. Values seen before
+// are also masked where no rule matches them any more. The reverse map lives
+// only in memory: it has no exported field, no encoding method, prints as a
+// fixed string, and the package imports nothing that writes files (enforced by
+// a test). Unredact is for local display only.
+//
+// Marker-like text already present in the input ("<SECRET_", "<PII_",
+// "<ESC_") is escaped by inserting ESC_, so repository text can neither forge a
+// marker that un-redacts to a real secret nor collide with one.
+//
+// Performance: Go's regexp is linear-time (RE2), so no input can trigger
+// catastrophic backtracking. Each call is still bounded to MaxInputBytes and
+// fails closed above it; callers split larger files. MaxInputBytes documents
+// the measured worst case.
+package redact
