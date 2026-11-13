@@ -85,7 +85,11 @@ func checkFileLines(fsys fs.FS, maxLines int) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if n := bytes.Count(data, []byte("\n")); n > maxLines {
+		n := bytes.Count(data, []byte("\n"))
+		if len(data) > 0 && data[len(data)-1] != '\n' {
+			n++
+		}
+		if n > maxLines {
 			problems = append(problems, fmt.Sprintf("%s has %d lines, cap is %d", name, n, maxLines))
 		}
 		return nil
