@@ -3,6 +3,7 @@ package redact
 import (
 	"regexp"
 	"strings"
+	"unicode"
 )
 
 // privateKeyLabel is the marker label of the gitleaks private-key rule, so a
@@ -135,18 +136,23 @@ func runSpan(lines []bodyLine, i, n int) span {
 }
 
 // bodyLines splits text into lines and finds each line's trailing token.
+// Lines in the blank tail of the text are left out, so a key line followed
+// by blank lines still touches the end of the text.
 func bodyLines(text string) []bodyLine {
+	// Trimmed once: re-trimming the tail for each dropped line made a text
+	// ending in many blank lines quadratic (#74).
+	tail := len(strings.TrimRightFunc(text, unicode.IsSpace))
 	var lines []bodyLine
 	for start := 0; start <= len(text); {
+		if start >= tail && len(lines) > 0 {
+			break
+		}
 		end := strings.IndexByte(text[start:], '\n')
 		if end < 0 {
 			end = len(text) - start
 		}
 		lines = append(lines, trailingToken(text, start, start+end))
 		start += end + 1
-	}
-	for len(lines) > 1 && strings.TrimSpace(text[lines[len(lines)-1].lineStart:]) == "" {
-		lines = lines[:len(lines)-1]
 	}
 	return lines
 }
