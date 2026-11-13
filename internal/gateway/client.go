@@ -17,7 +17,7 @@ var ErrRedirect = errors.New("redirect to another origin refused")
 const maxRedirects = 10
 
 // Default timeouts, so a stalled endpoint cannot hang a scan. They are
-// constants until the token-budget work (#84) gives them config keys. The
+// constants until they get config keys. The
 // response-header wait is long because a non-streaming model answer arrives
 // only when generation ends.
 const (

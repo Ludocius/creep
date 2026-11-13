@@ -38,6 +38,7 @@ type EgressLog struct {
 	payloads  *os.Root // held open, so swapping the path for a link later has no effect
 	freshLine bool     // the file may not end in '\n': start the next line with one
 	consent   *Consent // gates every Send; nil refuses every call
+	budget    *Budget  // limits every Send; nil refuses every call
 }
 
 // OpenEgressLog opens <runDir>/egress.log for appending, creating it with
@@ -53,9 +54,9 @@ type EgressLog struct {
 // link. Windows file modes do not express ACLs, so there only the type and
 // same-file checks apply.
 //
-// consent gates every Send before anything is written or sent; a nil
-// consent refuses every call.
-func OpenEgressLog(runDir string, consent *Consent) (*EgressLog, error) {
+// consent gates and budget limits every Send before anything is written or
+// sent; a nil consent or budget refuses every call.
+func OpenEgressLog(runDir string, consent *Consent, budget *Budget) (*EgressLog, error) {
 	if _, err := checkDir(runDir, 0o022); err != nil {
 		return nil, err
 	}
@@ -68,7 +69,7 @@ func OpenEgressLog(runDir string, consent *Consent) (*EgressLog, error) {
 		_ = payloads.Close()
 		return nil, err
 	}
-	l.consent = consent
+	l.consent, l.budget = consent, budget
 	return l, nil
 }
 

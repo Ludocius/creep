@@ -104,6 +104,21 @@
 //     NotScanned.Path comes from the repository and must be escaped when
 //     printed.
 //
-// Seam for the rest of #3: the token budget (#84) checks Call before sending
-// and reads Usage.
+// The Budget (budget.go, aimd.go) limits every Send after consent and before
+// the payload file, the request line or any connection; a nil Budget
+// refuses every call:
+//   - Each call reserves Call.ReserveTokens and one call against the run
+//     (budget.max_tokens, budget.max_calls from the resolved config) and,
+//     when set, against its endpoint origin's token limit. A call that would
+//     exceed any of them returns a *BudgetError and, like a consent refusal,
+//     writes and sends nothing. FileScan reports it as SkipBudget and stops
+//     the run as incomplete. Reservations make concurrent calls unable to
+//     overspend together.
+//   - Usage reported by the reply replaces the reservation (capped at the
+//     run limit); a call with no reported usage keeps it spent.
+//   - Each endpoint origin has an AIMD concurrency limit: it starts at 1,
+//     grows by one per 2xx up to MaxConcurrency, and halves (never below 1)
+//     on 429 or 5xx. Waiting for a slot ends with ctx and returns the
+//     reservation. The limit only bounds callers; the gateway starts no
+//     goroutines of its own.
 package gateway

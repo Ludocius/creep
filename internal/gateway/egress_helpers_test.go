@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -50,6 +52,10 @@ func (m *modelServer) serve(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/v1", http.StatusTemporaryRedirect)
 		return
 	}
+	if code, ok := strings.CutPrefix(r.URL.Path, "/status/"); ok {
+		status, _ := strconv.Atoi(code)
+		w.WriteHeader(status)
+	}
 	_, _ = io.WriteString(w, m.reply)
 }
 
@@ -81,7 +87,7 @@ func runDir(t *testing.T) string {
 
 func openLog(t *testing.T, dir string) *EgressLog {
 	t.Helper()
-	l, err := OpenEgressLog(dir, allowAllConsent(t))
+	l, err := OpenEgressLog(dir, allowAllConsent(t), roomyBudget(t))
 	if err != nil {
 		t.Fatalf("OpenEgressLog: %v", err)
 	}
@@ -115,11 +121,12 @@ func readLines(t *testing.T, dir string) []map[string]any {
 
 func testCall(endpoint string) Call {
 	return Call{
-		Endpoint:   endpoint,
-		Model:      "test-model",
-		Purpose:    "reader",
-		Payload:    []byte(`{"prompt":"code <SECRET_AWS_1>"}`),
-		Redactions: map[string]int{"SECRET_AWS": 1},
-		Header:     http.Header{"Authorization": {"Bearer sk-test-header-secret"}},
+		Endpoint:      endpoint,
+		Model:         "test-model",
+		Purpose:       "reader",
+		Payload:       []byte(`{"prompt":"code <SECRET_AWS_1>"}`),
+		Redactions:    map[string]int{"SECRET_AWS": 1},
+		Header:        http.Header{"Authorization": {"Bearer sk-test-header-secret"}},
+		ReserveTokens: 100,
 	}
 }
