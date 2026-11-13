@@ -139,3 +139,94 @@ func chmod(t *testing.T, path string, mode fs.FileMode) {
 		t.Fatal(err)
 	}
 }
+
+// Swaps between the Lstat of egress.log and its open are refused: a new log
+// needs O_EXCL, an existing one the same-file check.
+func TestOpenRace(t *testing.T) {
+	tests := []struct {
+		name     string
+		existing bool
+	}{
+		{"file appears after Lstat", false},
+		{"file replaced after Lstat", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := runDir(t)
+			if tt.existing {
+				writeFile(t, dir, egressLogName, 0o600)
+			}
+			other := writeFile(t, t.TempDir(), "other", 0o600)
+			setOpenHook(t, func(path string) {
+				if err := os.Rename(other, path); err != nil {
+					t.Fatal(err)
+				}
+			})
+			if l, err := OpenEgressLog(dir); err == nil {
+				_ = l.Close()
+				t.Fatal("OpenEgressLog: want error")
+			}
+		})
+	}
+}
+
+func setOpenHook(t *testing.T, hook func(string)) {
+	t.Helper()
+	old := testHookBeforeOpen
+	testHookBeforeOpen = hook
+	t.Cleanup(func() { testHookBeforeOpen = old })
+}
+
+// Unix only: a log with a second hard link or another owner is refused.
+func TestOpenRefusesSharedLog(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows has no Unix owner and link count is not checked; see checkAccess")
+	}
+	tests := []struct {
+		name    string
+		prepare func(t *testing.T, log string)
+	}{
+		{"second hard link", func(t *testing.T, log string) {
+			if err := os.Link(log, filepath.Join(t.TempDir(), "alias")); err != nil {
+				t.Skipf("hard links unsupported: %v", err)
+			}
+		}},
+		{"other owner", func(t *testing.T, log string) {
+			if os.Geteuid() != 0 {
+				t.Skip("chown to another user needs root; the docker -race run covers it")
+			}
+			if err := os.Chown(log, 65534, 65534); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := runDir(t)
+			tt.prepare(t, writeFile(t, dir, egressLogName, 0o600))
+			if _, err := OpenEgressLog(dir); !errors.Is(err, ErrUnsafeLogPath) {
+				t.Fatalf("err = %v, want ErrUnsafeLogPath", err)
+			}
+		})
+	}
+}
+
+// A log left without a final newline by a torn write gets its next line on
+// a fresh line.
+func TestTornLineRecovered(t *testing.T) {
+	dir := runDir(t)
+	if err := os.WriteFile(filepath.Join(dir, egressLogName), []byte(`{"torn":`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	l := openLog(t, dir)
+	if err := l.writeLine(map[string]int{"next": 1}); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, egressLogName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != "{\"torn\":\n{\"next\":1}\n" {
+		t.Fatalf("log = %q; want the new line after a newline", raw)
+	}
+}

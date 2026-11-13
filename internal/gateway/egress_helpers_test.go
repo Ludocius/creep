@@ -46,6 +46,10 @@ func (m *modelServer) serve(w http.ResponseWriter, r *http.Request) {
 	m.mu.Lock()
 	m.bodies = append(m.bodies, b)
 	m.mu.Unlock()
+	if r.URL.Path == "/redirect" {
+		http.Redirect(w, r, "/v1", http.StatusTemporaryRedirect)
+		return
+	}
 	_, _ = io.WriteString(w, m.reply)
 }
 
@@ -97,6 +101,9 @@ func readLines(t *testing.T, dir string) []map[string]any {
 	var lines []map[string]any
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
+		if len(sc.Bytes()) == 0 {
+			continue // left by recovery from a torn write
+		}
 		var m map[string]any
 		if err := json.Unmarshal(sc.Bytes(), &m); err != nil {
 			t.Fatalf("line %q: %v", sc.Text(), err)

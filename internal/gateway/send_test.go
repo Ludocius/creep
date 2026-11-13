@@ -105,8 +105,8 @@ func TestLogFailureSendsNothing(t *testing.T) {
 				t.Fatal(err)
 			}
 		}},
-		{"payload dir gone", func(t *testing.T, _ *EgressLog, dir string) {
-			if err := os.RemoveAll(filepath.Join(dir, payloadDirName)); err != nil {
+		{"payload dir closed", func(t *testing.T, l *EgressLog, _ string) {
+			if err := l.payloads.Close(); err != nil {
 				t.Fatal(err)
 			}
 		}},

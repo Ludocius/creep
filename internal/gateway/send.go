@@ -29,7 +29,12 @@ const (
 	OutcomeResponse  = "response"
 	OutcomeTransport = "transport_error"
 	OutcomeTooLarge  = "response_too_large"
+	OutcomeRedirect  = "redirect_refused"
 )
+
+// ErrRedirectNotFollowed means a model endpoint answered with a redirect.
+// Send does not follow it, because following would re-send the body.
+var ErrRedirectNotFollowed = errors.New("model endpoint redirected; redirects are not followed")
 
 // ErrLabel means Model or Purpose is empty or longer than maxLabelBytes.
 var ErrLabel = errors.New("model and purpose must be 1-256 bytes")
@@ -97,7 +102,14 @@ type resultLine struct {
 // so nothing is sent that egress.log does not show. A failure to write the
 // result line returns an error and no reply, so an unlogged answer is never
 // used.
+//
+// The payload is copied first, so a caller changing its slice mid-call
+// cannot make the bytes sent differ from the bytes hashed and stored.
+// Redirects are not followed: a 307 or 308 would send the body again to a
+// path the log does not show. Returned errors never quote the endpoint's
+// userinfo or query string.
 func (l *EgressLog) Send(ctx context.Context, client *http.Client, call Call) (*Reply, error) {
+	call.Payload = bytes.Clone(call.Payload)
 	endpoint, err := checkCall(call)
 	if err != nil {
 		return nil, err
@@ -106,7 +118,7 @@ func (l *EgressLog) Send(ctx context.Context, client *http.Client, call Call) (*
 	if err != nil {
 		return nil, err
 	}
-	status, body, sendErr := post(ctx, client, call)
+	status, body, sendErr := post(ctx, withoutRedirects(client), call)
 	if err := l.logResult(id, call, status, body, sendErr); err != nil {
 		return nil, errors.Join(sendErr, err)
 	}
@@ -127,8 +139,36 @@ func checkCall(call Call) (string, error) {
 	if err != nil || !u.IsAbs() || u.Host == "" {
 		return "", errors.New("gateway call: endpoint must be an absolute URL")
 	}
+	return withoutCredentials(u), nil
+}
+
+// withoutCredentials keeps scheme, host and path, dropping userinfo, query
+// and fragment, where API keys travel.
+func withoutCredentials(u *url.URL) string {
 	clean := url.URL{Scheme: u.Scheme, Host: u.Host, Path: u.Path, RawPath: u.RawPath}
-	return clean.String(), nil
+	return clean.String()
+}
+
+// scrubURLError rebuilds the *url.Error that http.Client returns, which
+// quotes the full request URL, with that URL stripped of credentials.
+func scrubURLError(err error) error {
+	var ue *url.Error
+	if !errors.As(err, &ue) {
+		return err
+	}
+	clean := "(unparseable URL)"
+	if u, perr := url.Parse(ue.URL); perr == nil {
+		clean = withoutCredentials(u)
+	}
+	return &url.Error{Op: ue.Op, URL: clean, Err: ue.Err}
+}
+
+// withoutRedirects returns a copy of client that hands back any redirect
+// response instead of following it.
+func withoutRedirects(client *http.Client) *http.Client {
+	c := *client
+	c.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	return &c
 }
 
 func validLogField(s string) bool {
@@ -159,6 +199,8 @@ func (l *EgressLog) logResult(id string, call Call, status int, body []byte, sen
 	switch {
 	case errors.Is(sendErr, ErrResponseTooLarge):
 		line.Outcome = OutcomeTooLarge
+	case errors.Is(sendErr, ErrRedirectNotFollowed):
+		line.Outcome = OutcomeRedirect
 	case sendErr != nil:
 		line.Outcome = OutcomeTransport
 	case call.Usage != nil:
@@ -173,16 +215,19 @@ func (l *EgressLog) logResult(id string, call Call, status int, body []byte, sen
 func post(ctx context.Context, client *http.Client, call Call) (int, []byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, call.Endpoint, bytes.NewReader(call.Payload))
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, errors.New("build request: invalid endpoint") // the parse error quotes the URL
 	}
 	for k, v := range call.Header {
 		req.Header[k] = v
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, scrubURLError(err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		return resp.StatusCode, nil, fmt.Errorf("status %d: %w", resp.StatusCode, ErrRedirectNotFollowed)
+	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 	if err != nil {
 		return resp.StatusCode, nil, err

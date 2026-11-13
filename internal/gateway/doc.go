@@ -47,7 +47,10 @@
 //
 // Every model call goes through EgressLog.Send, which writes
 // <run>/egress.log, one JSON object per line, mode 0600, opened with
-// O_APPEND and never through a link or onto a file others can read.
+// O_APPEND and never through a link or onto a file others can read, own or
+// reach through a second hard link. Send copies the payload before hashing
+// it, follows no redirects (that would re-send the body unlogged), and
+// strips userinfo and query from every error it returns.
 // Each call gets a random ID and two lines:
 //   - "request", written and fsynced before the request is built, with the
 //     endpoint (scheme, host and path only: no userinfo or query), model,

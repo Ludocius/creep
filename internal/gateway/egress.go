@@ -21,142 +21,203 @@ const (
 )
 
 // ErrUnsafeLogPath means egress.log, the payload directory or the run
-// directory is a link, a special file, or readable or writable by others.
+// directory is a link, a special file, shared with other users, or changed
+// while being opened.
 var ErrUnsafeLogPath = errors.New("unsafe egress log path")
+
+// testHookBeforeOpen runs between the Lstat of egress.log and its open, so
+// tests can swap the file in that window.
+var testHookBeforeOpen = func(string) {}
 
 // EgressLog appends one JSON line per event to <run>/egress.log. It is safe
 // for concurrent use; each line is written with a single append and synced
 // before Send continues.
 type EgressLog struct {
-	mu         sync.Mutex
-	f          *os.File
-	payloadDir string
+	mu        sync.Mutex
+	f         *os.File
+	payloads  *os.Root // held open, so swapping the path for a link later has no effect
+	freshLine bool     // the file may not end in '\n': start the next line with one
 }
 
 // OpenEgressLog opens <runDir>/egress.log for appending, creating it with
 // mode 0600, and <runDir>/payloads with mode 0700. runDir must already exist;
 // the scan command creates it with mode 0700.
 //
-// It refuses a run directory or log that is a symlink or not a directory or
-// regular file, and (outside Windows) one whose mode grants any access to
-// group or others. Lstat before open plus a same-file check after open
-// detects a log swapped for a link in between; a new log is created with
-// O_EXCL, which never follows a link. Windows file modes do not express
-// ACLs, so there only the type checks apply.
+// It refuses a run directory, payload directory or log that is a symlink or
+// not a directory or regular file. Outside Windows it also refuses them when
+// owned by another user or when their mode grants group or others access
+// (write access only, for the run directory), and a log with more than one
+// hard link. Lstat before open plus a same-file check after open detects a
+// swap in between; a new log is created with O_EXCL, which never follows a
+// link. Windows file modes do not express ACLs, so there only the type and
+// same-file checks apply.
 func OpenEgressLog(runDir string) (*EgressLog, error) {
-	if err := checkDir(runDir, false); err != nil {
+	if _, err := checkDir(runDir, 0o022); err != nil {
 		return nil, err
 	}
-	payloadDir := filepath.Join(runDir, payloadDirName)
-	if err := ensurePayloadDir(payloadDir); err != nil {
-		return nil, err
-	}
-	f, err := openAppendOnly(filepath.Join(runDir, egressLogName))
+	payloads, err := openPayloadDir(filepath.Join(runDir, payloadDirName))
 	if err != nil {
 		return nil, err
 	}
-	return &EgressLog{f: f, payloadDir: payloadDir}, nil
-}
-
-// Close closes the log file.
-func (l *EgressLog) Close() error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.f.Close()
-}
-
-// checkDir refuses a path that is not a real directory. The run directory
-// only has to be unwritable by others (strict=false); the payload directory,
-// which creep creates, must be private.
-func checkDir(path string, strict bool) error {
-	info, err := os.Lstat(path)
+	l, err := openLogFile(runDir, payloads)
 	if err != nil {
-		return fmt.Errorf("egress log dir: %w", err)
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("egress log dir %q: not a directory: %w", path, ErrUnsafeLogPath)
-	}
-	mask := fs.FileMode(0o022)
-	if strict {
-		mask = 0o077
-	}
-	return checkPerm(path, info.Mode(), mask)
-}
-
-func ensurePayloadDir(path string) error {
-	err := os.Mkdir(path, payloadDirMode)
-	if err != nil && !errors.Is(err, fs.ErrExist) {
-		return fmt.Errorf("egress payload dir: %w", err)
-	}
-	return checkDir(path, true)
-}
-
-// checkPerm refuses modes with any bit in mask. Skipped on Windows, where Go
-// reports 0666 or 0444 for every file whatever its ACL says.
-func checkPerm(path string, mode fs.FileMode, mask fs.FileMode) error {
-	if runtime.GOOS == "windows" || mode.Perm()&mask == 0 {
-		return nil
-	}
-	return fmt.Errorf("%q has mode %v: %w", path, mode.Perm(), ErrUnsafeLogPath)
-}
-
-// openAppendOnly opens path with O_APPEND, creating it if missing.
-func openAppendOnly(path string) (*os.File, error) {
-	before, err := os.Lstat(path)
-	if errors.Is(err, fs.ErrNotExist) {
-		return createExclusive(path, os.O_WRONLY|os.O_APPEND)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("egress log: %w", err)
-	}
-	if err := checkRegular(path, before); err != nil {
+		_ = payloads.Close()
 		return nil, err
 	}
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0)
+	return l, nil
+}
+
+func openLogFile(runDir string, payloads *os.Root) (*EgressLog, error) {
+	f, fresh, err := openAppendOnly(filepath.Join(runDir, egressLogName))
 	if err != nil {
-		return nil, fmt.Errorf("egress log: %w", err)
+		return nil, err
 	}
-	if err := sameFile(f, before); err != nil {
+	if err := syncDirPath(runDir); err != nil {
 		_ = f.Close()
 		return nil, err
 	}
-	return f, nil
+	return &EgressLog{f: f, payloads: payloads, freshLine: fresh}, nil
 }
 
-// createExclusive creates path with mode 0600. O_EXCL fails if anything,
-// a dangling symlink included, appeared at path.
-func createExclusive(path string, flag int) (*os.File, error) {
-	f, err := os.OpenFile(path, flag|os.O_CREATE|os.O_EXCL, logFileMode)
-	if err != nil {
-		return nil, fmt.Errorf("egress: create %q: %w", filepath.Base(path), err)
+// Close closes the log file and the payload directory.
+func (l *EgressLog) Close() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return errors.Join(l.f.Close(), l.payloads.Close())
+}
+
+// lstatPinned is os.Lstat with the file identity read now. On Windows,
+// Lstat's FileInfo loads the file ID lazily, by path, on the first
+// os.SameFile, which would compare against whatever replaced the file.
+func lstatPinned(path string) (fs.FileInfo, error) {
+	info, err := os.Lstat(path)
+	if err == nil {
+		os.SameFile(info, info)
 	}
-	return f, nil
+	return info, err
 }
 
-func checkRegular(path string, info fs.FileInfo) error {
+// checkDir refuses a path that is not a real directory of this user, or
+// whose mode has any bit in mask.
+func checkDir(path string, mask fs.FileMode) (fs.FileInfo, error) {
+	info, err := lstatPinned(path)
+	if err != nil {
+		return nil, fmt.Errorf("egress log dir: %w", err)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("egress log dir %q: not a directory: %w", path, ErrUnsafeLogPath)
+	}
+	return info, checkAccess(path, info, mask)
+}
+
+func openPayloadDir(path string) (*os.Root, error) {
+	err := os.Mkdir(path, payloadDirMode)
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return nil, fmt.Errorf("egress payload dir: %w", err)
+	}
+	before, err := checkDir(path, 0o077)
+	if err != nil {
+		return nil, err
+	}
+	root, err := os.OpenRoot(path)
+	if err != nil {
+		return nil, fmt.Errorf("egress payload dir: %w", err)
+	}
+	after, err := root.Stat(".")
+	if err != nil || !os.SameFile(before, after) {
+		_ = root.Close()
+		return nil, fmt.Errorf("egress payload dir %q changed while opening: %w", path, ErrUnsafeLogPath)
+	}
+	return root, nil
+}
+
+// checkAccess refuses another user's file and modes with any bit in mask.
+// Skipped on Windows, where Go reports 0666 or 0444 for every file whatever
+// its ACL says and files have no Unix owner.
+func checkAccess(path string, info fs.FileInfo, mask fs.FileMode) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	if info.Mode().Perm()&mask != 0 {
+		return fmt.Errorf("%q has mode %v: %w", path, info.Mode().Perm(), ErrUnsafeLogPath)
+	}
+	if !ownedBySelf(info) {
+		return fmt.Errorf("%q is owned by another user: %w", path, ErrUnsafeLogPath)
+	}
+	return nil
+}
+
+// openAppendOnly opens path with O_APPEND, creating it if missing. fresh
+// reports that an existing log does not end in a newline (a torn write).
+func openAppendOnly(path string) (f *os.File, fresh bool, err error) {
+	before, err := lstatPinned(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		testHookBeforeOpen(path)
+		f, err := os.OpenFile(path, os.O_RDWR|os.O_APPEND|os.O_CREATE|os.O_EXCL|extraOpenFlags, logFileMode)
+		if err != nil {
+			return nil, false, fmt.Errorf("egress log: create: %w", err)
+		}
+		return f, false, nil
+	}
+	if err != nil {
+		return nil, false, fmt.Errorf("egress log: %w", err)
+	}
+	if err := checkLogFile(path, before); err != nil {
+		return nil, false, err
+	}
+	testHookBeforeOpen(path)
+	return openExisting(path, before)
+}
+
+func openExisting(path string, before fs.FileInfo) (*os.File, bool, error) {
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_APPEND|extraOpenFlags, 0)
+	if err != nil {
+		return nil, false, fmt.Errorf("egress log: %w", err)
+	}
+	fresh, err := sameFile(f, before)
+	if err != nil {
+		_ = f.Close()
+		return nil, false, err
+	}
+	return f, fresh, nil
+}
+
+func checkLogFile(path string, info fs.FileInfo) error {
 	if !info.Mode().IsRegular() {
 		return fmt.Errorf("egress log %q: not a regular file: %w", path, ErrUnsafeLogPath)
 	}
-	return checkPerm(path, info.Mode(), 0o077)
+	if runtime.GOOS != "windows" && linkCount(info) != 1 {
+		return fmt.Errorf("egress log %q has other hard links: %w", path, ErrUnsafeLogPath)
+	}
+	return checkAccess(path, info, 0o077)
 }
 
 // sameFile refuses an open file that is not the one Lstat saw, which means
-// path was replaced (by a link, say) between the two calls.
-func sameFile(f *os.File, before fs.FileInfo) error {
+// path was replaced (by a link, say) between the two calls. It reports
+// whether the file lacks a final newline.
+func sameFile(f *os.File, before fs.FileInfo) (bool, error) {
 	after, err := f.Stat()
 	if err != nil {
-		return fmt.Errorf("egress log: %w", err)
+		return false, fmt.Errorf("egress log: %w", err)
 	}
 	if !os.SameFile(before, after) {
-		return fmt.Errorf("egress log %q changed while opening: %w", f.Name(), ErrUnsafeLogPath)
+		return false, fmt.Errorf("egress log %q changed while opening: %w", f.Name(), ErrUnsafeLogPath)
 	}
-	return checkRegular(f.Name(), after)
+	if err := checkLogFile(f.Name(), after); err != nil || after.Size() == 0 {
+		return false, err
+	}
+	last := make([]byte, 1)
+	if _, err := f.ReadAt(last, after.Size()-1); err != nil {
+		return false, fmt.Errorf("egress log: %w", err)
+	}
+	return last[0] != '\n', nil
 }
 
 // writeLine appends v as one JSON line and syncs it to disk. encoding/json
 // escapes control characters (so no field can start a new line) and replaces
 // invalid UTF-8; marshaling first and writing once keeps concurrent lines
-// whole.
+// whole. After a torn write the next line starts with '\n', so readers see
+// at most one broken line and should skip blank ones.
 func (l *EgressLog) writeLine(v any) error {
 	line, err := json.Marshal(v)
 	if err != nil {
@@ -165,9 +226,15 @@ func (l *EgressLog) writeLine(v any) error {
 	line = append(line, '\n')
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if _, err := l.f.Write(line); err != nil {
+	if l.freshLine {
+		line = append([]byte{'\n'}, line...)
+	}
+	n, err := l.f.Write(line)
+	if err != nil {
+		l.freshLine = l.freshLine || n > 0
 		return fmt.Errorf("egress log: write: %w", err)
 	}
+	l.freshLine = false
 	if err := l.f.Sync(); err != nil {
 		return fmt.Errorf("egress log: sync: %w", err)
 	}
@@ -175,12 +242,13 @@ func (l *EgressLog) writeLine(v any) error {
 }
 
 // writePayload stores the exact request bytes in payloads/<id>.payload with
-// mode 0600 and returns the name relative to the run directory.
+// mode 0600 and returns the name relative to the run directory. The file is
+// opened through the held os.Root with O_EXCL, so it is never a link.
 func (l *EgressLog) writePayload(id string, payload []byte) (string, error) {
 	name := id + ".payload"
-	f, err := createExclusive(filepath.Join(l.payloadDir, name), os.O_WRONLY)
+	f, err := l.payloads.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL|extraOpenFlags, logFileMode)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("egress: create payload %s: %w", name, err)
 	}
 	_, werr := f.Write(payload)
 	serr := f.Sync()
@@ -188,5 +256,33 @@ func (l *EgressLog) writePayload(id string, payload []byte) (string, error) {
 	if err := errors.Join(werr, serr, cerr); err != nil {
 		return "", fmt.Errorf("egress: write payload %s: %w", name, err)
 	}
+	if err := l.syncPayloadDir(); err != nil {
+		return "", err
+	}
 	return payloadDirName + "/" + name, nil
+}
+
+func (l *EgressLog) syncPayloadDir() error {
+	d, err := l.payloads.Open(".")
+	if err != nil {
+		return fmt.Errorf("egress payload dir: %w", err)
+	}
+	defer d.Close()
+	if err := syncDir(d); err != nil {
+		return fmt.Errorf("egress payload dir: sync: %w", err)
+	}
+	return nil
+}
+
+// syncDirPath makes a newly created entry in dir durable.
+func syncDirPath(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("egress log dir: %w", err)
+	}
+	defer d.Close()
+	if err := syncDir(d); err != nil {
+		return fmt.Errorf("egress log dir: sync: %w", err)
+	}
+	return nil
 }
