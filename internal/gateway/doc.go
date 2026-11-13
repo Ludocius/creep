@@ -15,6 +15,35 @@
 //     what was sent and where.
 //   - It connects only to configured model endpoints; creep has no telemetry.
 //
-// The client, redaction hook and egress log arrive with the rest of #3; this
-// file reserves the package path that the import rule exempts.
+// NewClient enforces where requests may go, in this order and before any
+// DNS lookup or dial:
+//   - Allowlist: the URL host and effective port must match an egress.allow
+//     entry. "host" covers only the scheme's default port (443 or 80);
+//     "host:port" covers only that port. Hosts must be LDH DNS names whose
+//     last label starts with a letter, or canonical IP literals without a
+//     zone, so numeric tricks (2130706433, 0x7f.1, 0177.0.0.1, 127.1) never
+//     reach a resolver. IPv4-mapped IPv6 is compared as IPv4.
+//   - TLS: http:// is allowed only to loopback hosts, meaning exactly the
+//     name "localhost", 127.0.0.0/8 and ::1. Names that resolve to loopback
+//     (localhost.attacker.com, 127.0.0.1.nip.io) are not loopback hosts.
+//   - Redirects: only to the same scheme, host and port as the first
+//     request, at most 10. https→http and port changes are refused.
+//
+// The dialer then pins addresses: each allowlisted host is resolved once per
+// client and later dials use only the pinned IPs, while TLS still verifies
+// the certificate and sends SNI and Host for the hostname. A slow lookup
+// holds only its own host. "localhost" is never resolved; it means
+// 127.0.0.1, then ::1. A DNS answer containing any non-public address
+// (loopback, private, CGNAT, link-local and cloud metadata, multicast, or
+// NAT64, SIIT and 6to4 forms of those) is refused whole, always. A model on a
+// private network is reached by allowlisting and requesting its IP literal
+// ("10.0.0.5:8443"); that entry never vouches for a name resolving to it.
+//
+// Dial, TLS handshake and response-header waits have fixed default timeouts
+// (client.go) until they get config keys.
+//
+// Proxy environment variables are ignored: a proxy resolves names itself,
+// which would bypass the address checks and pinning above.
+//
+// Consent, the egress log and redaction plumbing arrive with the rest of #3.
 package gateway
