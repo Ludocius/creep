@@ -14,7 +14,7 @@ EXE := .exe
 endif
 BIN := bin/creep$(EXE)
 
-.PHONY: build test check fmt-check tidy vet budget clean
+.PHONY: build test check fmt-check tidy vet budget rulesets clean
 
 # VERSION and COMMIT reach the recipe through the environment, never as shell
 # text, and are filtered to SAFE_CHARS before use.
@@ -51,6 +51,20 @@ vet:
 # file length, workflow pinning.
 budget:
 	go run ./internal/tools/budget
+
+# Creates or updates each ruleset in .github/rulesets (file name = ruleset name),
+# so re-running after a reviewed change is safe. Needs gh authenticated as an admin.
+REPO ?= Ludocius/creep
+rulesets:
+	@for f in .github/rulesets/*.json; do \
+		name="$$(basename "$$f" .json)"; \
+		id="$$(gh api "repos/$(REPO)/rulesets" --jq ".[] | select(.name == \"$$name\") | .id")" || exit 1; \
+		if [ -n "$$id" ]; then \
+			echo "update $$name ($$id)"; gh api -X PUT "repos/$(REPO)/rulesets/$$id" --input "$$f" >/dev/null || exit 1; \
+		else \
+			echo "create $$name"; gh api -X POST "repos/$(REPO)/rulesets" --input "$$f" >/dev/null || exit 1; \
+		fi; \
+	done
 
 clean:
 	rm -f bin/creep bin/creep.exe coverage.out
