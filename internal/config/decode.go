@@ -12,10 +12,15 @@ import (
 )
 
 // policyFile is the org policy. Its defaults use the same keys as Config.
+// Consent lists the model endpoints the organization consents to sending
+// redacted code to; it is the only source of consent in CI (see
+// Resolved.PolicyConsent). It is not a Config key, so no user, project or
+// --config file can express it.
 type policyFile struct {
 	Locked   []string `yaml:"locked"`
 	Limits   Limits   `yaml:"limits"`
 	Defaults Config   `yaml:"defaults"`
+	Consent  []string `yaml:"consent"`
 }
 
 // Limits are the loosest values a later layer may choose.

@@ -37,14 +37,37 @@ type Options struct {
 	RootCAs  *x509.CertPool
 }
 
-// NewClient returns the only HTTP client creep uses to reach a model.
+// Client is the handle Send uses to reach a model. It is opaque on purpose:
+// it has no HTTP methods and exposes no *http.Client, so code outside the
+// gateway can send a model request only through EgressLog.Send, which checks
+// consent and writes egress.log first.
+type Client struct {
+	hc *http.Client
+}
+
+// CloseIdleConnections closes idle keep-alive connections.
+func (c *Client) CloseIdleConnections() {
+	c.hc.CloseIdleConnections()
+}
+
+// NewClient returns the only client creep uses to reach a model; see
+// newHTTPClient for what it enforces.
+func NewClient(opts Options) (*Client, error) {
+	hc, err := newHTTPClient(opts)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{hc: hc}, nil
+}
+
+// newHTTPClient builds the allowlisted, pinned HTTP client.
 //
 // Proxy environment variables (HTTP_PROXY, HTTPS_PROXY, NO_PROXY, ALL_PROXY)
 // are ignored: a proxy would receive the hostname and resolve it itself,
 // bypassing the allowlist's address checks and IP pinning, and routing
 // scanned code through a host the user never listed. Proxy support, if it
 // comes, will be an explicit config key that is itself allowlisted.
-func NewClient(opts Options) (*http.Client, error) {
+func newHTTPClient(opts Options) (*http.Client, error) {
 	allow, err := parseAllowlist(opts.Allow)
 	if err != nil {
 		return nil, fmt.Errorf("gateway client: %w", err)

@@ -25,10 +25,10 @@ func (h hookTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return h.next.RoundTrip(req)
 }
 
-func hookedClient(t *testing.T, srv *modelServer, before func()) *http.Client {
+func hookedClient(t *testing.T, srv *modelServer, before func()) *Client {
 	t.Helper()
 	c := srv.client(t)
-	c.Transport = hookTransport{before: before, next: c.Transport}
+	c.hc.Transport = hookTransport{before: before, next: c.hc.Transport}
 	return c
 }
 

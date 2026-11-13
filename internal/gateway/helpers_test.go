@@ -106,7 +106,7 @@ func serverPort(t *testing.T, srv *httptest.Server) string {
 	return port
 }
 
-func newTestClient(t *testing.T, opts Options) *http.Client {
+func newTestClient(t *testing.T, opts Options) *Client {
 	t.Helper()
 	c, err := NewClient(opts)
 	if err != nil {
@@ -116,8 +116,8 @@ func newTestClient(t *testing.T, opts Options) *http.Client {
 }
 
 // get performs a GET and returns the body, closing the response.
-func get(c *http.Client, url string) (string, error) {
-	resp, err := c.Get(url)
+func get(c *Client, url string) (string, error) {
+	resp, err := c.hc.Get(url)
 	if err != nil {
 		return "", err
 	}

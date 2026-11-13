@@ -205,7 +205,7 @@ func TestProxyEnvIgnored(t *testing.T) {
 	if got := d.dialed(); len(got) != 1 || got[0] != "198.51.100.7:"+port {
 		t.Errorf("dialed %v, want the pinned address, not the proxy", got)
 	}
-	if tr := c.Transport.(guard).next.(*http.Transport); tr.Proxy != nil {
+	if tr := c.hc.Transport.(guard).next.(*http.Transport); tr.Proxy != nil {
 		t.Error("transport has a proxy func")
 	}
 }

@@ -60,7 +60,7 @@ func (m *modelServer) stats() (conns int, bodies [][]byte) {
 }
 
 // client returns a gateway client that allows only this server.
-func (m *modelServer) client(t *testing.T) *http.Client {
+func (m *modelServer) client(t *testing.T) *Client {
 	t.Helper()
 	return newTestClient(t, Options{Allow: []string{"127.0.0.1:" + m.port}})
 }
@@ -81,7 +81,7 @@ func runDir(t *testing.T) string {
 
 func openLog(t *testing.T, dir string) *EgressLog {
 	t.Helper()
-	l, err := OpenEgressLog(dir)
+	l, err := OpenEgressLog(dir, allowAllConsent(t))
 	if err != nil {
 		t.Fatalf("OpenEgressLog: %v", err)
 	}

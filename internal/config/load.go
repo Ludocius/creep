@@ -33,6 +33,7 @@ type Inputs struct {
 type Resolved struct {
 	Config  Config
 	sources map[string]string
+	consent []string // policy consent entries, unvalidated (the gateway parses them)
 }
 
 // layer is one file layer after the policy.
@@ -110,7 +111,16 @@ func (s *state) applyPolicy(f *File) error {
 		s.locked[k] = src
 	}
 	s.limits, s.limSrc = p.Limits, src
+	s.consent = p.Consent
 	return nil
+}
+
+// PolicyConsent returns the endpoints the policy file consents to, as
+// written. Only the policy can grant consent through configuration: the
+// scanned repository's creep.yaml must never be able to approve where its
+// code is sent. The gateway validates and normalizes the entries.
+func (r *Resolved) PolicyConsent() []string {
+	return append([]string(nil), r.consent...)
 }
 
 // checkPolicy validates the parts of a policy that are not config values.
