@@ -33,6 +33,7 @@ go test ./... -failfast           # tests replay recorded model responses; no ke
 - Tests are table-driven. New behavior needs a test; new model behavior needs a replay fixture.
 - Prompts live in `prompts/` as versioned data, one variant per model tier, with a token-budget test.
 - Commits: Conventional Commits, signed, with `Signed-off-by` (`git commit -s`).
+- Test fixtures are generated in `t.TempDir()` unless they must be committed files; throwaway worktrees or folders go outside the repo and are removed when done.
 
 ## Workflow (spec-driven)
 

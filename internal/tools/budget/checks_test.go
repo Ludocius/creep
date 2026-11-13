@@ -106,7 +106,8 @@ func TestCheckFileLines(t *testing.T) {
 
 // lineProblems must scan the configured root, not the working directory.
 func TestLineProblemsUsesRoot(t *testing.T) {
-	got, err := lineProblems(config{root: "testdata/lines", maxLines: 400})
+	big := "package big\n" + strings.Repeat("// line\n", 400)
+	got, err := lineProblems(config{root: writeTree(t, map[string]string{"big.go": big}), maxLines: 400})
 	if err != nil {
 		t.Fatal(err)
 	}

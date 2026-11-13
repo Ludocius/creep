@@ -9,11 +9,40 @@ import (
 	"testing/fstest"
 )
 
-// The fixtures under testdata are only read and parsed (go list and go mod
-// edit included); nothing in them is built or run.
+// The fixture trees are written to t.TempDir and only read and parsed (go list
+// and go mod edit included); nothing in them is built or run.
+
+// writeTree writes files (slash-separated path to contents) under a fresh
+// temporary directory and returns its path.
+func writeTree(t *testing.T, files map[string]string) string {
+	t.Helper()
+	root := t.TempDir()
+	for name, data := range files {
+		path := filepath.Join(root, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return root
+}
 
 func TestProcessUsesFixtures(t *testing.T) {
-	files, err := collectSources(os.DirFS("testdata/procs"), testMod)
+	root := writeTree(t, map[string]string{
+		"internal/cli/alias.go":      "package cli\n\nimport o \"os\"\n\nfunc start() { o.StartProcess(\"/bin/sh\", nil, nil) }\n",
+		"internal/cli/clean.go":      "package cli\n\nimport \"os\"\n\nfunc read() { os.Open(\"x\") }\n",
+		"internal/cli/dot.go":        "package cli\n\nimport . \"os\"\n\nvar start = StartProcess\n",
+		"internal/cli/exec_linux.go": "//go:build linux\n\npackage cli\n\nimport sc \"syscall\"\n\nfunc replace() { sc.Exec(\"/bin/sh\", nil, nil) }\n",
+		"internal/cli/newfile.go":    "package cli\n\nimport \"os\"\n\nvar inherited = os.NewFile(3, \"socket\")\n",
+		// The name matches a syscall allowlist entry, so only the call is reported.
+		"internal/cli/open_unix.go":   "//go:build unix\n\npackage cli\n\nimport \"syscall\"\n\nfunc spawn() { syscall.ForkExec(\"/bin/sh\", nil, nil) }\n",
+		"internal/cli/value.go":       "package cli\n\nimport \"os\"\n\nvar start = os.StartProcess\n",
+		"internal/tools/run/fd.go":    "package run\n\nimport \"os\"\n\nvar fd = os.NewFile(3, \"fd\")\n",
+		"internal/tools/run/start.go": "package run\n\nimport \"os\"\n\nfunc start() { os.StartProcess(\"go\", nil, nil) }\n",
+	})
+	files, err := collectSources(os.DirFS(root), testMod)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +79,28 @@ func problemsFor(problems []string, file string) []string {
 }
 
 func TestForeignFixtures(t *testing.T) {
-	got, err := foreignProblems(config{root: "testdata/foreign"})
+	root := writeTree(t, map[string]string{
+		"go.mod":                 "module example.com/foreign\n\ngo 1.24\n",
+		"asm/asm.go":             "package asm\n\nfunc f()\n",
+		"asm/asm_amd64.s":        "TEXT ·f(SB), 0, $0\n\tRET\n",
+		"asm/testdata/ignored.s": "; testdata is never built\n",
+		"asm/upper_arm64.S":      "TEXT f(SB)\n",
+		"bin/out.s":              "root bin/ holds build output and is skipped\n",
+		"cgo/cgo.go":             "package cgo\n",
+		"cgo/x.c":                "/* fixture */\n",
+		"cgo/x.cc":               "/* fixture */\n",
+		"cgo/x.cpp":              "/* fixture */\n",
+		"cgo/x.f":                "/* fixture */\n",
+		"cgo/x.h":                "/* fixture */\n",
+		"cgo/x.m":                "/* fixture */\n",
+		"cgo/x.swig":             "/* fixture */\n",
+		"excluded/excluded.go":   "package excluded\n",
+		"excluded/sys_plan9.s":   "//go:build plan9\n\nTEXT f(SB)\n",
+		"internal/bin/b_amd64.s": "TEXT f(SB)\n",
+		"syso/blob_amd64.syso":   "fixture: stands in for an object file, never linked\n",
+		"syso/syso.go":           "package syso\n",
+	})
+	got, err := foreignProblems(config{root: root})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +156,13 @@ func TestWalkForeignFilesCase(t *testing.T) {
 }
 
 func TestWorkspaceFixture(t *testing.T) {
-	got, err := workspaceProblems(config{root: "testdata/workspace"})
+	root := writeTree(t, map[string]string{
+		"go.mod":             "module example.com/ws\n\ngo 1.24\n\nreplace example.com/local => ../local\n\nreplace example.com/old => example.com/new v1.0.0\n",
+		"go.work":            "go 1.24\n\nuse .\n",
+		"go.work.sum":        "",
+		"vendor/modules.txt": "# fixture\n",
+	})
+	got, err := workspaceProblems(config{root: root})
 	if err != nil {
 		t.Fatal(err)
 	}
