@@ -45,5 +45,26 @@
 // Proxy environment variables are ignored: a proxy resolves names itself,
 // which would bypass the address checks and pinning above.
 //
-// Consent, the egress log and redaction plumbing arrive with the rest of #3.
+// Every model call goes through EgressLog.Send, which writes
+// <run>/egress.log, one JSON object per line, mode 0600, opened with
+// O_APPEND and never through a link or onto a file others can read, own or
+// reach through a second hard link. Send copies the payload before hashing
+// it, follows no redirects (that would re-send the body unlogged), and
+// strips userinfo and query from every error it returns.
+// Each call gets a random ID and two lines:
+//   - "request", written and fsynced before the request is built, with the
+//     endpoint (scheme, host and path only: no userinfo or query), model,
+//     purpose, byte count, sha256 of the exact body sent, redaction counts by
+//     marker label, and payload_file. A failure here aborts the call before
+//     any byte is sent.
+//   - "result", after the reply, with a closed outcome enum, the HTTP status
+//     and the tokens the provider reported. No error text, header or payload
+//     byte is ever written to the log.
+//
+// The body itself is stored in <run>/payloads/<id>.payload (mode 0600, in a
+// 0700 directory), so the user can check the hash and read what was sent.
+//
+// Seams for the rest of #3: consent (#82) gates Send before logRequest;
+// Call.Payload and Call.Redactions come from the run's Redactor (#83);
+// the token budget (#84) checks Call before sending and reads Usage.
 package gateway
