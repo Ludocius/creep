@@ -52,9 +52,9 @@ go test ./... -failfast           # tests replay recorded model responses; no ke
 
 ## Current state
 
-- Merged: #1 base CLI (`internal/cli`, `internal/exitcode`, `internal/buildinfo`); #18 CI (10 required jobs) and `internal/tools/budget` (`make budget`); #39 rulesets, `release` environment and settings as code (`make rulesets`). Main accepts only squash PRs with green checks. #55 agent-loop policy enforced by `make budget`. #2 layered config (`internal/config`, `creep config explain`, ADR 0001 yaml/v3); #61 project file cannot loosen built-in CI gates. Unimplemented commands fail closed (exit 2).
-- Next (by board priority): #4 → #3 → #8 → #5 → #9 → #16 → #11 → #12 → #13 → #14 → #6 → #10 → #20 → #17 → #19 → #7 → #15. Follow-ups: #41, #43, #49–#52, #56, #57, #62–#64 (v0.1); #58 (v0.2); #44–#47 (v0.2).
-- Review lessons: never exit 0 on unimplemented paths; open files without blocking (FIFO); escape every printed error.
+- Merged: #1 base CLI (`internal/cli`, `internal/exitcode`, `internal/buildinfo`); #18 CI (10 required jobs) and `internal/tools/budget` (`make budget`); #39 rulesets, `release` environment and settings as code (`make rulesets`). Main accepts only squash PRs with green checks. #55 agent-loop policy enforced by `make budget`. #2 layered config (`internal/config`, `creep config explain`, ADR 0001 yaml/v3); #61 project file cannot loosen built-in CI gates; #4 redaction (`internal/redact`): callers must fragment only `redact.File` output. Unimplemented commands fail closed (exit 2).
+- Next (by board priority): #74 → #69 → #3 → #8 → #5 → #9 → #16 → #11 → #12 → #13 → #14 → #6 → #10 → #20 → #17 → #19 → #7 → #15. Follow-ups: #41, #43, #49–#52, #56, #57, #62–#64, #70–#73, #75 (v0.1); #58, #76 (v0.2); #44–#46 (v0.2).
+- Review lessons: never exit 0 on unimplemented paths; open files without blocking (FIFO); escape every printed error; run golangci-lint locally (CI lint is required); redact whole files before fragmenting.
 - Windows dev: Go 1.27 and make via winget (no cgo, so `-race` runs only on Linux). Linux check: `docker run --rm -v "$PWD:/src" -w /src golang:1.27.4 go test -race ./...`.
 
 ## Do not read
