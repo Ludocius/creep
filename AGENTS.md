@@ -52,8 +52,8 @@ go test ./... -failfast           # tests replay recorded model responses; no ke
 
 ## Current state
 
-- Merged: #1 base CLI (`internal/cli`, `internal/exitcode`, `internal/buildinfo`); #18 CI (10 required jobs) and `internal/tools/budget` (`make budget`); #39 rulesets, `release` environment and settings as code (`make rulesets`). Main accepts only squash PRs with green checks. #55 agent-loop policy enforced by `make budget`. #2 layered config (`internal/config`, `creep config explain`, ADR 0001 yaml/v3). Unimplemented commands fail closed (exit 2).
-- Next (by board priority): #61 → #4 → #3 → #8 → #5 → #9 → #16 → #11 → #12 → #13 → #14 → #6 → #10 → #20 → #17 → #19 → #7 → #15. Follow-ups: #41, #43, #49–#52, #56, #57, #62–#64 (v0.1); #58 (v0.2); #44–#47 (v0.2).
+- Merged: #1 base CLI (`internal/cli`, `internal/exitcode`, `internal/buildinfo`); #18 CI (10 required jobs) and `internal/tools/budget` (`make budget`); #39 rulesets, `release` environment and settings as code (`make rulesets`). Main accepts only squash PRs with green checks. #55 agent-loop policy enforced by `make budget`. #2 layered config (`internal/config`, `creep config explain`, ADR 0001 yaml/v3); #61 project file cannot loosen built-in CI gates. Unimplemented commands fail closed (exit 2).
+- Next (by board priority): #4 → #3 → #8 → #5 → #9 → #16 → #11 → #12 → #13 → #14 → #6 → #10 → #20 → #17 → #19 → #7 → #15. Follow-ups: #41, #43, #49–#52, #56, #57, #62–#64 (v0.1); #58 (v0.2); #44–#47 (v0.2).
 - Review lessons: never exit 0 on unimplemented paths; open files without blocking (FIFO); escape every printed error.
 - Windows dev: Go 1.27 and make via winget (no cgo, so `-race` runs only on Linux). Linux check: `docker run --rm -v "$PWD:/src" -w /src golang:1.27.4 go test -race ./...`.
 
