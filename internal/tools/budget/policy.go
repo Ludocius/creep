@@ -21,9 +21,11 @@ const docsOnlyRule = "Documentation-only changes run only the auditor"
 
 const auditorTriage = "The auditor triages every open finding"
 
-// pentesterScope and pentesterIsolation pin ADR 0002: the pentester is the one
-// reviewer kept independent, and only maintainers decide when it must run.
-const pentesterScope = "The pentester runs only when the issue carries the `security-sensitive` label, which only maintainers apply"
+// pentesterScope, releaseGate and pentesterIsolation pin ADR 0002 and ADR 0004:
+// the pentester stays independent and gates each release and every external PR.
+const pentesterScope = "The pentester runs once per version, over the whole version diff before the release is tagged, and on every pull request from an external contributor"
+
+const releaseGate = "A confirmed Critical or High from the release pentest blocks the release"
 
 const pentesterIsolation = "The pentester gets no shared context"
 
@@ -33,7 +35,7 @@ const sharedContext = "Developer, tester and auditor share context"
 
 const auditorEscalation = "If the auditor sees security impact in an unlabeled change, it asks a maintainer to add the label"
 
-const templateSkip = "skipped because the issue is not labeled `security-sensitive`"
+const templateSkip = "the release pentest covers this change"
 
 // maxPolicyBytes bounds reads so a huge policy file cannot stall CI.
 const maxPolicyBytes = 1 << 20
@@ -45,6 +47,7 @@ var requiredPolicy = map[string][]string{
 		sharedContext,
 		pentesterIsolation,
 		pentesterScope,
+		releaseGate,
 		auditorEscalation,
 		"Confirmed Critical or High blocks the merge",
 		"Maximum 3 cycles",
@@ -52,7 +55,7 @@ var requiredPolicy = map[string][]string{
 		docsOnlyRule,
 		auditorTriage,
 	},
-	"CONTRIBUTING.md":                  {agentLoop, sharedContext, pentesterIsolation, pentesterScope, auditorEscalation, "Changing or removing this loop needs an ADR", docsOnlyRule, auditorTriage},
+	"CONTRIBUTING.md":                  {agentLoop, sharedContext, pentesterIsolation, pentesterScope, releaseGate, auditorEscalation, "Changing or removing this loop needs an ADR", docsOnlyRule, auditorTriage},
 	".github/PULL_REQUEST_TEMPLATE.md": {agentLoop, "no shared context", templateSkip},
 	"CLAUDE.md":                        {"@AGENTS.md"},
 }
