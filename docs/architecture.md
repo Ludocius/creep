@@ -128,6 +128,52 @@ Evidence from 2026-11-13 (lines are source/test, churn is commits on `main`).
 - No languages beyond Python and JS/TS before v1.0.
 - No automatic application of fixes.
 
+## 8. Engineering principles
+
+The developer follows these and the auditor checks every PR against them ([ADR 0005](adr/0005-auditor-architecture-review.md)). They are defaults, not rules to force: a deviation with a stated reason is fine.
+
+- **Patterns** only where they remove real duplication or coupling. Name the problem first; never add a pattern for its own sake.
+- **Modularity.** Small packages with one reason to exist (`doc.go` says which). Deep modules: a narrow exported API hiding real work. The layer table in §3 is respected.
+- **Testing where it is needed.** New behavior is covered through its edge cases, failure paths and security protections, not trivial happy paths or getters. No test that only restates the implementation. Table-driven; model behavior gets a replay fixture.
+- **Scalability and reuse.** Reuse an existing package before adding one. Work per input is bounded: linear time, capped size, and a documented worst case backed by a benchmark. No speculative abstraction.
+- **SOLID the Go way, not forced.** Small interfaces declared by the consumer, composition over inheritance, dependencies passed in explicitly (no globals, no init-time wiring).
+- **Paradigm mix.** Plain functions and data first; methods on a type when it owns state. Concurrency and parallelism only when they measurably help (I/O fan-out, CPU-bound batches), always bounded and cancellable through `context`.
+
+## 9. Fitness functions
+
+Automated checks that guard an architectural property. A new property needs a check here, not only prose. Atomic checks run on every PR; the per-version review (ADR 0005) is the holistic one.
+
+| Property | Check | Where it runs |
+|---|---|---|
+| Only `gateway` reaches the network (invariant 1) | Net/exec/syscall import and reach rules, `internal/tools/budget/imports.go`, `reach.go`; depguard as editor feedback | `make budget`, CI `budget` and `lint` |
+| No dependency without an ADR (invariant 6) | Dependency allowlist vs `docs/adr/dependencies.txt`, `go mod tidy -diff` | `make check`, CI `budget` |
+| Small, auditable build | Module-graph and release-binary caps; no non-Go sources, `go.work`, `vendor/` or local replace | `make budget` |
+| Small files | Go file cap of 400 lines (`checkFileLines`) | `make budget` |
+| Agent loop cannot erode | Pinned policy phrases in AGENTS.md, CONTRIBUTING.md, PR template (`policy.go`) | `make budget` |
+| Workflows are pinned and safe | Immutable action/image pins, no `pull_request_target`; actionlint, zizmor | `make budget`, CI |
+| Secrets never leave unredacted | Redaction leak tests (`redact/*_test.go`), gateway fragment scan test | `make check` |
+| Redaction stays linear | `TestRedactLargeInputIsBounded`; `Benchmark*` in `internal/redact` | `make check`; benchmarks at the per-version review |
+| No known-vulnerable code or leaked secret | govulncheck, gitleaks over full history, CodeQL | CI |
+| Layer table holds | `layers` block in §3 | Planned: `make budget` once #119 lands |
+
+Function length has no automated check; the auditor reviews it.
+
+## 10. Evolutionary architecture
+
+Adapted from *Building Evolutionary Architectures* (Ford, Parsons, Kua), taking only what fits a single-binary CLI with one maintainer.
+
+| Book idea | How creep adapts it | Not adopted |
+|---|---|---|
+| Fitness functions | The checks in §9, in one table; add one only when a property has no automated guard | No fitness-function framework or dashboard |
+| Atomic vs holistic, triggered vs continual | Atomic and triggered: `make check` and CI on every PR. Holistic: the per-version review (whole diff, benchmarks over time) | No production monitoring (no telemetry, invariant 5) |
+| Incremental change | Small issues, one feature at a time, squash merges, sub-issues for L | — |
+| Appropriate coupling (connascence) | Layer table and narrow interfaces; the auditor flags strong connascence across a package boundary | No coupling metrics tooling |
+| Anticorruption layer | Model contracts translate vendor output into closed schemas before planner or reader see it | — |
+| Last responsible moment | ADRs only when a dependency or public contract changes | — |
+| Evolvability over predictability | Prefer data (prompts, rules, kits, layer table) over code so changes stay local | No speculative plugin systems |
+
+Skipped on purpose: architectural quanta per service, cross-service schema evolution and per-team deployment pipelines. They target distributed systems; creep is one binary with no server.
+
 ## ADR index
 
 | ADR | Decision |
@@ -136,3 +182,4 @@ Evidence from 2026-11-13 (lines are source/test, churn is commits on `main`).
 | [0002](adr/0002-agent-loop-scope.md) | Shared context in the agent loop; pentester independent |
 | [0003](adr/0003-architecture-layers.md) | Layers, stable contracts, maintainability decisions, module path |
 | [0004](adr/0004-pentester-per-release.md) | Pentester once per version and on external PRs |
+| [0005](adr/0005-auditor-architecture-review.md) | Auditor reviews PRs against this document; per-version architecture review |
