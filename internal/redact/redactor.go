@@ -254,6 +254,39 @@ func (r *Redactor) Unredact(text string) string {
 	}
 }
 
+// MarkerCounts counts the markers of this Redactor in text by label, such as
+// SECRET_GITHUB_PAT or PII_EMAIL, for egress.log. Only markers this run
+// issued count: escaped marker-like text from the repository does not.
+func (r *Redactor) MarkerCounts(text string) map[string]int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	counts := map[string]int{}
+	for {
+		i := strings.IndexByte(text, '<')
+		if i < 0 {
+			return counts
+		}
+		text = text[i:]
+		if label, ok := r.state.markerLabel(text); ok {
+			counts[label]++
+		}
+		text = text[1:]
+	}
+}
+
+// markerLabel returns the label of the marker issued by this run that starts
+// text, if any. The search for ">" is bounded, so counting stays linear.
+func (s *runState) markerLabel(text string) (string, bool) {
+	end := strings.IndexByte(text[:min(len(text), maxMarkerLen+2)], '>')
+	if end < 0 {
+		return "", false
+	}
+	if _, ok := s.byMarker[text[:end+1]]; !ok {
+		return "", false
+	}
+	return text[1:strings.LastIndexByte(text[:end], '_')], true
+}
+
 // unredactAt handles the "<" at the start of text and returns how many bytes
 // it consumed.
 func (s *runState) unredactAt(b *strings.Builder, text string) int {
