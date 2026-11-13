@@ -5,19 +5,10 @@ import (
 	"strings"
 )
 
-// piiDetector finds one kind of personal data. valid, when set, rejects
-// candidates whose checksum or structure is wrong, which keeps ordinary
-// numbers in code (ids, timestamps) from being masked.
-type piiDetector struct {
-	label string
-	re    *regexp.Regexp
-	valid func(string) bool
-}
-
 // Each pattern is LEAD(VALUE)TRAIL with one boundary character on each side,
 // so a digit run inside a longer identifier or number does not match. find
 // pads the text with newlines so the boundaries also hold at both ends.
-var piiDetectors = []piiDetector{
+var piiDetectors = []patternDetector{
 	{
 		label: "PII_EMAIL",
 		re:    regexp.MustCompile(`[^A-Za-z0-9._%+-]([A-Za-z0-9._%+-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,24})[^A-Za-z0-9-]`),
@@ -44,30 +35,9 @@ var piiDetectors = []piiDetector{
 	},
 	{
 		label: "PII_BR_CPF",
-		re:    regexp.MustCompile(`[^0-9A-Za-z_.-]([0-9]{3}\.[0-9]{3}\.[0-9]{3}-[0-9]{2})[^0-9A-Za-z_]`),
+		re:    regexp.MustCompile(`[^0-9A-Za-z_.-]([0-9]{3}\.?[0-9]{3}\.?[0-9]{3}-?[0-9]{2})[^0-9A-Za-z_]`),
 		valid: validCPF,
 	},
-}
-
-// find returns the spans of valid values. Each search restarts at the end of
-// the previous value, so its trailing boundary character can lead the next
-// match ("a@b.io,c@d.io"); every step advances, so the scan stays linear.
-func (d piiDetector) find(text string) []span {
-	padded := "\n" + text + "\n"
-	var out []span
-	for pos := 0; pos < len(padded); {
-		m := d.re.FindStringSubmatchIndex(padded[pos:])
-		if m == nil {
-			break
-		}
-		start, end := pos+m[2], pos+m[3]
-		pos = end
-		if d.valid != nil && !d.valid(padded[start:end]) {
-			continue
-		}
-		out = append(out, span{start: start - 1, end: end - 1, label: d.label})
-	}
-	return out
 }
 
 func digitsOnly(s string) string {

@@ -14,13 +14,16 @@ func fill(unit string) string {
 // of digits or word characters, "@" chains, common keywords, marker prefixes.
 func largeInputs() map[string]string {
 	return map[string]string{
-		"code":     fill("func f(a int) string { return fmt.Sprintf(\"%d\", a) }\n"),
-		"digits":   fill("4"),
-		"word":     fill("a"),
-		"at signs": fill("a@"),
-		"keywords": fill("api_key = token secret password "),
-		"markers":  fill("<SECRET_"),
-		"hex kw":   fill("api_key=" + strings.Repeat("0123456789abcdef", 2) + " "),
+		"code":      fill("func f(a int) string { return fmt.Sprintf(\"%d\", a) }\n"),
+		"digits":    fill("4"),
+		"word":      fill("a"),
+		"at signs":  fill("a@"),
+		"keywords":  fill("api_key = token secret password "),
+		"markers":   fill("<SECRET_"),
+		"hex kw":    fill("api_key=" + strings.Repeat("0123456789abcdef", 2) + " "),
+		"passwords": fill("password=x "),
+		"url creds": fill("a://b:c@"),
+		"aws 40":    "AKIA" + strings.Repeat("A", 16) + fill("Ab3/+")[20:],
 	}
 }
 

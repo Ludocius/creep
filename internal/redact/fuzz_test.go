@@ -1,6 +1,7 @@
 package redact
 
 import (
+	"fmt"
 	"math/rand/v2"
 	"strings"
 	"testing"
@@ -25,6 +26,41 @@ var secretMakers = []func(*rand.Rand) string{
 	},
 }
 
+// credentialMakers build a line holding a random password in a format that
+// has no fixed prefix (URL userinfo, key = value); they return the line and
+// the password that must not leak.
+var credentialMakers = []func(*rand.Rand) (string, string){
+	func(rng *rand.Rand) (string, string) {
+		pw := fakePassword(rng)
+		schemes := []string{"postgres", "mysql", "redis", "amqp", "sqlserver", "mongodb+srv", "https"}
+		host := []string{"db.internal", "cache:6379/0", "x.example.com/app?ssl=true"}[rng.IntN(3)]
+		return schemes[rng.IntN(len(schemes))] + "://user:" + pw + "@" + host, pw
+	},
+	func(rng *rand.Rand) (string, string) {
+		pw := fakePassword(rng)
+		keys := []string{"password", "passwd", "pwd", "DB_PASSWORD", "spring.datasource.password", "client_secret"}
+		forms := []string{"%s=%s", "%s: %s", "%s = \"%s\"", "%s := '%s'", "\"%s\": \"%s\"", "%s => `%s`"}
+		return fmt.Sprintf(forms[rng.IntN(len(forms))], keys[rng.IntN(len(keys))], pw), pw
+	},
+}
+
+// fakePassword mixes letters, digits and the punctuation people put in
+// passwords, but not quotes, commas, semicolons or spaces, which end a bare
+// value. Letters at both ends keep it from looking like a reference the
+// detector leaves alone on purpose (${VAR}, <placeholder>, getPassword()).
+func fakePassword(rng *rand.Rand) string {
+	return fakeToken(rng, alnum, 4) + fakeToken(rng, alnum+"!#%^&*()-_+[]{}.~", 10) + fakeToken(rng, alnum, 2)
+}
+
+// fakeLine returns the line to embed and the secret that must not leak.
+func fakeLine(rng *rand.Rand, kind int) (string, string) {
+	if kind < len(secretMakers) {
+		secret := secretMakers[kind](rng)
+		return "cfg := \"" + secret + "\"", secret
+	}
+	return credentialMakers[kind-len(secretMakers)](rng)
+}
+
 // FuzzRedactSecrets embeds a random secret in a line of code between
 // arbitrary text and checks it never reaches the output (the gateway
 // payload), neither in the fragment that holds it nor in a later fragment
@@ -37,10 +73,12 @@ func FuzzRedactSecrets(f *testing.F) {
 	f.Add("-----BEGIN PRIV"+"ATE KEY-----", "-----END", uint64(5), uint8(6))
 	f.Add("<<<", ">>>", uint64(6), uint8(5))
 	f.Add("\xff\xfe", "\x00", uint64(7), uint8(4))
+	f.Add("x = 1", "", uint64(8), uint8(7))
+	f.Add("[db]", "url: x", uint64(9), uint8(8))
 	f.Fuzz(func(t *testing.T, before, after string, seed uint64, kind uint8) {
 		rng := rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))
-		secret := secretMakers[int(kind)%len(secretMakers)](rng)
-		text := before + "\ncfg := \"" + secret + "\"\n" + after
+		line, secret := fakeLine(rng, int(kind)%(len(secretMakers)+len(credentialMakers)))
+		text := before + "\n" + line + "\n" + after
 		if len(text)+len(after)+len(secret)+1 > MaxInputBytes {
 			t.Skip("input over the cap")
 		}

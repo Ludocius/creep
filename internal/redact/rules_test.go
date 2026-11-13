@@ -3,6 +3,7 @@ package redact
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -69,7 +70,7 @@ func TestMarkersMatchNoRule(t *testing.T) {
 				t.Errorf("rule %s matches marker %q", r.label, text)
 			}
 		}
-		for _, d := range piiDetectors {
+		for _, d := range slices.Concat(piiDetectors, credentialDetectors) {
 			if got := d.find(text); len(got) > 0 {
 				t.Errorf("detector %s matches marker %q", d.label, text)
 			}

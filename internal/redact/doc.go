@@ -12,7 +12,17 @@
 //     license are in NOTICE; a test pins the file's SHA-256 and rule count.
 //   - PII: email addresses, card numbers (Luhn), US SSNs (dashed, SSA-valid
 //     ranges), Spanish DNI and NIE (control letter) and Brazilian CPF (two
-//     check digits). Checksums keep ordinary numbers in code unmasked.
+//     check digits, dotted or not). Checksums keep ordinary numbers in code
+//     unmasked.
+//   - Credentials with no fixed format, which gitleaks misses: the password
+//     in scheme://user:password@host, the value of password, passwd, pwd,
+//     passphrase and secret keys (quoted or bare, references such as ${VAR}
+//     left alone), and a bare 40-character AWS secret key when an AWS access
+//     key id is in the same input (credentials.go).
+//
+// When matches overlap they are merged and the most specific label names the
+// marker; each part is also remembered, so it is masked when it shows up
+// alone in a later fragment.
 //
 // The rules file is read by a tiny reader for the TOML subset it uses
 // (toml.go) instead of a generator that converts it to JSON. Both need the same

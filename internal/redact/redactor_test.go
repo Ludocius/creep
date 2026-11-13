@@ -106,6 +106,7 @@ func TestRedactPII(t *testing.T) {
 		{"dni", "dni: 12345678Z", "<PII_ES_DNI_1>"},
 		{"nie", "nie X1234567L.", "<PII_ES_NIE_1>"},
 		{"cpf", "cpf 111.444.777-35", "<PII_BR_CPF_1>"},
+		{"cpf plain", "cpf: 11144477735,", "<PII_BR_CPF_1>"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -131,6 +132,7 @@ func TestRedactKeepsOrdinaryCode(t *testing.T) {
 		"x := 12345678A",                    // DNI letter wrong
 		"v := 000-12-3456",                  // SSN area 000
 		"cpf := 111.111.111-11",             // repeated digits
+		"n := 11144477736",                  // CPF check digit wrong
 		"n := 41111111111111110000",         // longer digit run
 		"name := foo4111111111111111",       // inside an identifier
 		"if a < b && c > d { return x<<2 }", // plain comparisons

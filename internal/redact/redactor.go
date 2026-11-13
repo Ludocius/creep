@@ -79,7 +79,20 @@ func (r *Redactor) Redact(text string) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	found = append(found, r.state.sweep(text)...)
-	return r.state.render(text, mergeSpans(found)), nil
+	out := r.state.render(text, mergeSpans(found))
+	r.state.rememberParts(text, found)
+	return out, nil
+}
+
+// rememberParts gives a marker to each value that was masked only as part of
+// a merged span (a URL password run into an email), so the sweep still masks
+// it when it shows up alone in a later fragment.
+func (s *runState) rememberParts(text string, found []span) {
+	for _, sp := range found {
+		if sp.label != "" && sp.end-sp.start >= minSweepLen {
+			s.marker(text[sp.start:sp.end], sp.label)
+		}
+	}
 }
 
 // detect runs every secret rule and PII detector over text.
@@ -90,6 +103,9 @@ func (r *Redactor) detect(text string) []span {
 		if rule.applies(lower) {
 			found = append(found, rule.find(text)...)
 		}
+	}
+	for _, d := range credentialDetectors {
+		found = append(found, d.find(text)...)
 	}
 	for _, d := range piiDetectors {
 		found = append(found, d.find(text)...)
@@ -118,8 +134,9 @@ func (s *runState) sweep(text string) []span {
 }
 
 // mergeSpans sorts spans and joins overlapping ones, so every secret byte is
-// covered even when two rules disagree on the bounds. The first span's label
-// names the merged one.
+// covered even when two rules disagree on the bounds. The most specific label
+// (labelRank) names the merged span, so a URL password that runs into an
+// email is one secret, and a GitHub token is not called a generic key.
 func mergeSpans(spans []span) []span {
 	sort.Slice(spans, func(i, j int) bool {
 		if spans[i].start != spans[j].start {
@@ -132,7 +149,7 @@ func mergeSpans(spans []span) []span {
 		last := len(out) - 1
 		if last >= 0 && s.start < out[last].end {
 			out[last].end = max(out[last].end, s.end)
-			if out[last].label == "" {
+			if labelRank(s.label) > labelRank(out[last].label) {
 				out[last].label = s.label
 			}
 			continue
