@@ -104,9 +104,9 @@ func TestForeignFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Root bin/ and nested testdata/ are never built; internal/bin is.
+	// Nested testdata/ is never built; root bin/ and internal/bin are walked.
 	want := []string{
-		"asm/asm_amd64.s", "asm/upper_arm64.S",
+		"asm/asm_amd64.s", "asm/upper_arm64.S", "bin/out.s",
 		"cgo/x.c", "cgo/x.cc", "cgo/x.cpp", "cgo/x.f", "cgo/x.h", "cgo/x.m", "cgo/x.swig",
 		"excluded/sys_plan9.s", "internal/bin/b_amd64.s", "syso/blob_amd64.syso",
 	}
@@ -121,7 +121,7 @@ func TestCheckForeign(t *testing.T) {
 		names []string
 		want  string
 	}{
-		{"go list and walk agree", []string{"p/a.s", "p/a.s"}, "p/a.s is a non-Go source"},
+		{"reported", []string{"p/a.s"}, "p/a.s is a non-Go source"},
 		{"allowlisted", []string{"ok/a.s"}, ""},
 		{"none", nil, ""},
 	}
@@ -129,18 +129,6 @@ func TestCheckForeign(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			assertOneProblem(t, checkForeign(tt.names), tt.want)
 		})
-	}
-}
-
-func TestListedFilesRelNames(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "mod")
-	inside := listedFiles{Dir: filepath.Join(root, "p"), SFiles: []string{"a.s"}, SysoFiles: []string{"b.syso"}, IgnoredOtherFiles: []string{"c_plan9.s"}}
-	if got, want := inside.relNames(root), []string{"p/a.s", "p/b.syso", "p/c_plan9.s"}; !reflect.DeepEqual(got, want) {
-		t.Errorf("inside root: got %q, want %q", got, want)
-	}
-	outside := listedFiles{Dir: filepath.Join(filepath.Dir(root), "other"), CFiles: []string{"x.c"}}
-	if got := outside.relNames(root); len(got) != 1 || !strings.HasSuffix(got[0], "other/x.c") || strings.HasPrefix(got[0], "..") {
-		t.Errorf("outside root: got %q, want an absolute path ending in other/x.c", got)
 	}
 }
 
@@ -225,11 +213,11 @@ func TestCheckWorkflowYAMLShapes(t *testing.T) {
 // TestRepoPasses runs the static checks over this repository: the guards must
 // not flag the code they protect. The binary cap is left to `make budget`.
 func TestRepoPasses(t *testing.T) {
-	cfg := config{root: "../../..", allowlist: "docs/adr/dependencies.txt", maxModules: defaultMaxModules, maxLines: defaultMaxLines}
+	cfg := config{root: "../../..", architecture: "docs/architecture.md", allowlist: "docs/adr/dependencies.txt", maxModules: defaultMaxModules}
 	steps := map[string]func(config) ([]string, error){
 		"workspace": workspaceProblems, "deps": depProblems, "imports": importProblems,
 		"foreign": foreignProblems, "reach": netReachProblems, "modules": moduleProblems,
-		"lines": lineProblems, "workflows": workflowProblems,
+		"layers": layerProblems, "workflows": workflowProblems,
 	}
 	for name, step := range steps {
 		t.Run(name, func(t *testing.T) {

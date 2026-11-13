@@ -12,6 +12,7 @@ linters:
     - gosec
     - ineffassign
     - misspell
+    - revive
     - staticcheck
     - unused
   settings:
@@ -55,6 +56,12 @@ linters:
         - G104
     misspell:
       locale: US
+    revive:
+      rules:
+        # AGENTS.md: files under 400 lines. Test files count too.
+        - name: file-length-limit
+          arguments:
+            - max: 400
   exclusions:
     presets:
       # Unchecked Close/Fprint*/RemoveAll on best-effort paths.

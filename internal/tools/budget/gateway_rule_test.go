@@ -44,8 +44,8 @@ func TestNetImportFailsBudget(t *testing.T) {
 	}
 }
 
-// TestMakeCheckRunsBudget pins the wiring the test above relies on: `make
-// check` depends on the budget target, which runs this tool.
+// TestMakeCheckRunsBudget pins the wiring the tests rely on: `make check`
+// depends on the budget target, which runs this tool, and on tidy.
 func TestMakeCheckRunsBudget(t *testing.T) {
 	data, err := os.ReadFile("../../../Makefile")
 	if err != nil {
@@ -56,5 +56,9 @@ func TestMakeCheckRunsBudget(t *testing.T) {
 	}
 	if !regexp.MustCompile(`(?m)^budget:\r?\n\tgo run \./internal/tools/budget\s*$`).Match(data) {
 		t.Error("Makefile: budget does not run ./internal/tools/budget")
+	}
+	// directModules trusts go.mod's // indirect marks only because tidy -diff checks them.
+	if !regexp.MustCompile(`(?m)^check:[^\n]*\stidy(\s|$)`).Match(data) || !regexp.MustCompile(`(?m)^tidy:\r?\n\tgo mod tidy -diff\s*$`).Match(data) {
+		t.Error("Makefile: check does not run go mod tidy -diff")
 	}
 }

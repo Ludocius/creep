@@ -106,29 +106,6 @@ func TestBypassModule(t *testing.T) {
 	assertMentions(t, reach, wantReach)
 }
 
-// A used dependency marked // indirect, in a block written as `require(`,
-// must still count as direct.
-func TestHiddenIndirectDependency(t *testing.T) {
-	root := t.TempDir()
-	writeFiles(t, root, map[string]string{
-		"go.mod":  "module example.com/m\n\ngo 1.24\n\nrequire(\n\texample.com/dep v1.0.0 // indirect\n)\n",
-		"main.go": "package main\nimport _ \"example.com/dep/x\"\nfunc main() {}\n",
-	})
-	mf, err := readModFile(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := []modRequire{{Path: "example.com/dep", Indirect: true}}; !reflect.DeepEqual(mf.Require, want) {
-		t.Fatalf("Require = %+v, want %+v", mf.Require, want)
-	}
-	files, err := collectSources(os.DirFS(root), mf.Module.Path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	direct := directModules(mf.Require, allImports(files))
-	assertOneProblem(t, checkDeps(direct, map[string]string{}, fileExists), "example.com/dep has no ADR")
-}
-
 func TestGoOutputIncludesStderr(t *testing.T) {
 	_, err := goOutput(t.TempDir(), "list", "-m", "all")
 	if err == nil || !strings.Contains(err.Error(), "go.mod") {

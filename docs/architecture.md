@@ -50,8 +50,8 @@ A package may import only packages in **lower** layers and only those listed in 
 4        internal/calibrate      models state config
 4        internal/planner        models state config
 4        internal/reader         models redact state config
+4        internal/sandbox        state config
 5        internal/report         state config buildinfo
-5        internal/sandbox        state config
 5        internal/verify         sandbox state config
 6        internal/cli            *
 6        internal/mcp            report state config
@@ -148,13 +148,13 @@ Automated checks that guard an architectural property. A new property needs a ch
 | Only `gateway` reaches the network (invariant 1) | Net/exec/syscall import and reach rules, `internal/tools/budget/imports.go`, `reach.go`; depguard as editor feedback | `make budget`, CI `budget` and `lint` |
 | No dependency without an ADR (invariant 6) | Dependency allowlist vs `docs/adr/dependencies.txt`, `go mod tidy -diff` | `make check`, CI `budget` |
 | Small, auditable build | Module-graph and release-binary caps; no non-Go sources, `go.work`, `vendor/` or local replace | `make budget` |
-| Small files | Go file cap of 400 lines (`checkFileLines`) | `make budget` |
+| Small files | Go file cap of 400 lines (revive `file-length-limit`) | CI `lint` |
 | Agent loop cannot erode | Pinned policy phrases in AGENTS.md, CONTRIBUTING.md, PR template (`policy.go`) | `make budget` |
 | Workflows are pinned and safe | Immutable action/image pins, no `pull_request_target`; actionlint, zizmor | `make budget`, CI |
 | Secrets never leave unredacted | Redaction leak tests (`redact/*_test.go`), gateway fragment scan test | `make check` |
 | Redaction stays linear | `TestRedactLargeInputIsBounded`; `Benchmark*` in `internal/redact` | `make check`; benchmarks at the per-version review |
 | No known-vulnerable code or leaked secret | govulncheck, gitleaks over full history, CodeQL | CI |
-| Layer table holds | `layers` block in §3 | Planned: `make budget` once #119 lands |
+| Layer table holds | `layers` block in §3: every module package has a row and imports only lower layers its row lists (`layers.go`) | `make budget`, CI `budget` |
 
 Function length has no automated check; the auditor reviews it.
 
