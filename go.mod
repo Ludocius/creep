@@ -1,4 +1,4 @@
-module github.com/Ludocius/creep
+module github.com/sneakercreepers/creep
 
 go 1.24
 

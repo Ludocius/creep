@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/Ludocius/creep/internal/buildinfo"
-	"github.com/Ludocius/creep/internal/exitcode"
+	"github.com/sneakercreepers/creep/internal/buildinfo"
+	"github.com/sneakercreepers/creep/internal/exitcode"
 )
 
 // env is what a command needs from Run.

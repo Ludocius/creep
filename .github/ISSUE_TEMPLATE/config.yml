@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: 🔒 Report a security vulnerability in creep
-    url: https://github.com/Ludocius/creep/security/advisories/new
+    url: https://github.com/sneakercreepers/creep/security/advisories/new
     about: Never open a public issue for vulnerabilities. Use private reporting.
   - name: ❓ Ask a question
-    url: https://github.com/Ludocius/creep/discussions/categories/q-a
+    url: https://github.com/sneakercreepers/creep/discussions/categories/q-a
     about: How-to questions and help go to Discussions.
   - name: 📊 Share model results
-    url: https://github.com/Ludocius/creep/discussions/categories/show-and-tell
+    url: https://github.com/sneakercreepers/creep/discussions/categories/show-and-tell
     about: Calibration or benchmark results with your model.

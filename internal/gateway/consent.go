@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/Ludocius/creep/internal/exitcode"
+	"github.com/sneakercreepers/creep/internal/exitcode"
 )
 
 // ErrNoConsent means the endpoint has no consent: the user declined, could

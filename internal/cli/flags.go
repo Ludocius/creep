@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Ludocius/creep/internal/config"
+	"github.com/sneakercreepers/creep/internal/config"
 )
 
 // The config package owns the allowed values so flags and files agree.

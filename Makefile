@@ -1,7 +1,7 @@
 # Works with GNU make on Linux, macOS and Windows (Git Bash sh).
 
 PKG     ?= ./...
-MODULE  := github.com/Ludocius/creep
+MODULE  := github.com/sneakercreepers/creep
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 BUILDINFO := $(MODULE)/internal/buildinfo
@@ -55,7 +55,7 @@ budget:
 # Creates or updates each ruleset in .github/rulesets (file name = ruleset name),
 # then applies .github/settings, so re-running after a reviewed change is safe.
 # Needs gh authenticated as an admin.
-REPO ?= Ludocius/creep
+REPO ?= sneakercreepers/creep
 rulesets: repo-settings
 	@for f in .github/rulesets/*.json; do \
 		name="$$(basename "$$f" .json)"; \

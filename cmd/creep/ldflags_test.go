@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-const buildinfoPkg = "github.com/Ludocius/creep/internal/buildinfo"
+const buildinfoPkg = "github.com/sneakercreepers/creep/internal/buildinfo"
 
 // TestVersionLinkTimeValues builds the real binary so a rename of the
 // buildinfo variables, which the Makefile sets with -X, cannot go unnoticed.

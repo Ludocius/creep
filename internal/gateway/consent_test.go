@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Ludocius/creep/internal/exitcode"
+	"github.com/sneakercreepers/creep/internal/exitcode"
 )
 
 // allowAllConsent consents to every endpoint, for tests about logging.

@@ -5,7 +5,7 @@
 ## Reporting a vulnerability
 
 **Do not open a public issue.** Use GitHub's private reporting:
-[Report a vulnerability](https://github.com/Ludocius/creep/security/advisories/new)
+[Report a vulnerability](https://github.com/sneakercreepers/creep/security/advisories/new)
 
 Please include the version, the configuration (`creep config explain`, with secrets removed), steps to reproduce and the impact you expect.
 
