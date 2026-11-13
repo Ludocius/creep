@@ -33,12 +33,14 @@ go test ./... -failfast           # tests replay recorded model responses; no ke
 - Tests are table-driven. New behavior needs a test; new model behavior needs a replay fixture.
 - Prompts live in `prompts/` as versioned data, one variant per model tier, with a token-budget test.
 - Commits: Conventional Commits, signed, with `Signed-off-by` (`git commit -s`).
+- Test fixtures are generated in `t.TempDir()` unless they must be committed files; throwaway worktrees or folders go outside the repo and are removed when done.
 
 ## Workflow (spec-driven)
 
 - **The GitHub issue is the spec**: context, scope, acceptance criteria. If the spec changes, edit the issue — do not add new `.md` files.
 - Per feature, three independent agents with no shared context: **developer → tester → pentester**. Maximum 3 cycles; the next developer receives only the findings.
-- Merge (squash) only when GitHub checks are green **and** the pentester approves. One feature at a time.
+- An independent **auditor** reviews the code and the pentester's findings and re-rates each one by real impact on the project (exploitability, who can trigger it, existing mitigations). Any confirmed **Critical or High** → no merge, back to the developer (escalate to the maintainer after 3 cycles). Only Medium/Low/Info → merge allowed; each open finding becomes a follow-up issue. The auditor posts its decision and reasoning as a PR comment.
+- Merge (squash) only when GitHub checks are green, the tester passes and the auditor allows it. One feature at a time.
 - Branch `feat/<issue>-<slug>`; PR body `Closes #N`; labels from the issue.
 - ADR only when a change adds a dependency or alters a public contract.
 - After each merge, update **Current state** below (max 10 lines).

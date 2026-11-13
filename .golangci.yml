@@ -1,0 +1,70 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - depguard
+    - errcheck
+    - govet
+    - gosec
+    - ineffassign
+    - misspell
+    - staticcheck
+    - unused
+  settings:
+    depguard:
+      rules:
+        # AGENTS.md invariant 1: only internal/gateway may touch the network.
+        # This rule is editor feedback only. depguard globs cannot anchor the
+        # exception to the module root (internal/cli/internal/gateway would
+        # match too) nor see files excluded by build tags, so the authority is
+        # `make budget` (internal/tools/budget/imports.go), which also carries
+        # the os/exec and syscall allowlists. Matching is by prefix and the
+        # longest match wins, so "net" covers every net/* except net/netip.
+        network-only-in-gateway:
+          list-mode: lax
+          files:
+            - "$all"
+            - "!**/internal/gateway/**"
+          allow:
+            - net/netip
+          deny:
+            - pkg: "net"
+              desc: "network access lives only in internal/gateway (AGENTS.md invariant 1)"
+            - pkg: "crypto/tls"
+              desc: "network access lives only in internal/gateway (AGENTS.md invariant 1)"
+            - pkg: "log/syslog"
+              desc: "network access lives only in internal/gateway (AGENTS.md invariant 1)"
+            - pkg: "golang.org/x/net"
+              desc: "network access lives only in internal/gateway (AGENTS.md invariant 1)"
+            - pkg: "golang.org/x/sys"
+              desc: "raw system calls can open sockets; see make budget"
+            - pkg: "plugin"
+              desc: "foreign code can open sockets"
+            - pkg: "unsafe"
+              desc: "unchecked code (go:linkname) can open sockets"
+    gosec:
+      excludes:
+        # G304 (file path from a variable): creep reads files the user points
+        # it at by design: its own --config and the repository being scanned.
+        - G304
+        # G104 duplicates errcheck, which owns unchecked errors.
+        - G104
+    misspell:
+      locale: US
+  exclusions:
+    presets:
+      # Unchecked Close/Fprint*/RemoveAll on best-effort paths.
+      - std-error-handling
+    rules:
+      # Tests build and run the binary on purpose.
+      - path: _test\.go
+        linters: [gosec]
+        text: "G204|G702"
+
+formatters:
+  enable:
+    - gofmt

@@ -1,0 +1,4 @@
+# Direct dependencies allowed in go.mod, one per line:
+#   <module path> docs/adr/<NNNN-title>.md
+# `make budget` fails if go.mod requires a module that is not listed here
+# or whose ADR file does not exist. See AGENTS.md invariant 6.

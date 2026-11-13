@@ -18,7 +18,8 @@ Thanks for helping. The most valuable contributions are often not code:
 You need Go, make and git. Nothing else: dev tools are pinned in `go.mod` and run with `go tool`.
 
 ```sh
-make check                          # everything CI runs on a PR
+make check                          # fmt, vet, budget and tests (CI also runs golangci-lint, govulncheck, gitleaks)
+make budget                         # dependency allowlist, module/binary caps, file length, workflow pinning
 make test PKG=./internal/redact     # one package
 make map                            # regenerate docs/map.md
 ```
