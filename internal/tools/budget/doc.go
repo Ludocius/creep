@@ -7,8 +7,9 @@
 // (net, crypto/tls, syscall, unsafe, cgo, os/exec outside an allowlist…) or
 // calls os.StartProcess or os.NewFile, the repository holds non-Go sources
 // (assembly, C, .syso…), a go.work, vendor/ or a local replace, a package
-// imports outside the layers table of docs/architecture.md, the module graph
-// or the release binary outgrows its cap, or a workflow uses
+// imports outside the layers table of docs/architecture.md, a Go file passes
+// 400 lines, the module graph or the release binary outgrows its cap, or a
+// workflow uses
 // pull_request_target, an action or image not pinned immutably, or YAML a
 // line scan cannot resolve.
 //

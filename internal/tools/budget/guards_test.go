@@ -217,7 +217,7 @@ func TestRepoPasses(t *testing.T) {
 	steps := map[string]func(config) ([]string, error){
 		"workspace": workspaceProblems, "deps": depProblems, "imports": importProblems,
 		"foreign": foreignProblems, "reach": netReachProblems, "modules": moduleProblems,
-		"layers": layerProblems, "workflows": workflowProblems,
+		"layers": layerProblems, "lines": lineProblems, "workflows": workflowProblems,
 	}
 	for name, step := range steps {
 		t.Run(name, func(t *testing.T) {

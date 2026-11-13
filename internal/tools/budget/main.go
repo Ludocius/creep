@@ -56,12 +56,16 @@ func run(cfg config, out io.Writer) int {
 	return 0
 }
 
+// maxFileLines is AGENTS.md's file cap; it holds for every .go file, whatever its build tags.
+const maxFileLines = 400
+
+var steps = []func(config) ([]string, error){
+	workspaceProblems, depProblems, importProblems, layerProblems, lineProblems, foreignProblems,
+	netReachProblems, moduleProblems, binaryProblems, workflowProblems, policyProblems,
+}
+
 func collect(cfg config) ([]string, error) {
 	var problems []string
-	steps := []func(config) ([]string, error){
-		workspaceProblems, depProblems, importProblems, layerProblems, foreignProblems,
-		netReachProblems, moduleProblems, binaryProblems, workflowProblems, policyProblems,
-	}
 	for _, step := range steps {
 		p, err := step(cfg)
 		if err != nil {
@@ -83,6 +87,18 @@ func loadSources(cfg config) (modFile, []sourceFile, error) {
 		return modFile{}, nil, fmt.Errorf("scan imports: %w", err)
 	}
 	return mf, files, nil
+}
+
+func lineProblems(cfg config) ([]string, error) {
+	_, files, err := loadSources(cfg)
+	if err != nil {
+		return nil, err
+	}
+	var problems []string
+	for _, f := range files {
+		problems = append(problems, checkCap(f.Name, int64(f.Lines), maxFileLines, "lines")...)
+	}
+	return problems, nil
 }
 
 func depProblems(cfg config) ([]string, error) {

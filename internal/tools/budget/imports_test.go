@@ -68,7 +68,7 @@ func TestCollectSourcesIgnoresBuildConstraints(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []sourceFile{{Name: "internal/a/dial_plan9.go", Pkg: testMod + "/internal/a", Imports: []string{"net"}}}
+	want := []sourceFile{{Name: "internal/a/dial_plan9.go", Pkg: testMod + "/internal/a", Lines: 4, Imports: []string{"net"}}}
 	if !reflect.DeepEqual(files, want) {
 		t.Errorf("got %+v, want %+v", files, want)
 	}

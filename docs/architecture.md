@@ -148,7 +148,7 @@ Automated checks that guard an architectural property. A new property needs a ch
 | Only `gateway` reaches the network (invariant 1) | Net/exec/syscall import and reach rules, `internal/tools/budget/imports.go`, `reach.go`; depguard as editor feedback | `make budget`, CI `budget` and `lint` |
 | No dependency without an ADR (invariant 6) | Dependency allowlist vs `docs/adr/dependencies.txt`, `go mod tidy -diff` | `make check`, CI `budget` |
 | Small, auditable build | Module-graph and release-binary caps; no non-Go sources, `go.work`, `vendor/` or local replace | `make budget` |
-| Small files | Go file cap of 400 lines (revive `file-length-limit`) | CI `lint` |
+| Small files | Go file cap of 400 lines, build-tagged files included (`lineProblems`) | `make budget` |
 | Agent loop cannot erode | Pinned policy phrases in AGENTS.md, CONTRIBUTING.md, PR template (`policy.go`) | `make budget` |
 | Workflows are pinned and safe | Immutable action/image pins, no `pull_request_target`; actionlint, zizmor | `make budget`, CI |
 | Secrets never leave unredacted | Redaction leak tests (`redact/*_test.go`), gateway fragment scan test | `make check` |

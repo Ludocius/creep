@@ -47,8 +47,9 @@ tidy:
 vet:
 	go vet ./...
 
-# Dependency allowlist, network/exec import rules, module and binary caps,
-# file length, workflow pinning.
+# Dependency allowlist, network/exec import rules, architecture layer table,
+# non-Go sources and workspace files, module and binary caps, file length,
+# workflow pinning, agent-loop policy phrases.
 budget:
 	go run ./internal/tools/budget
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"go/parser"
 	"go/token"
@@ -15,6 +16,7 @@ type sourceFile struct {
 	Name    string // slash path relative to the module root
 	Pkg     string // import path of its directory
 	Test    bool
+	Lines   int
 	Imports []string
 	Uses    []string // watched calls such as "os.StartProcess"; see procs.go
 }
@@ -78,6 +80,10 @@ func parseImports(fsys fs.FS, fset *token.FileSet, name string) (sourceFile, err
 		return sourceFile{}, fmt.Errorf("parse %s: %w", name, err)
 	}
 	f := sourceFile{Name: name, Test: strings.HasSuffix(name, "_test.go"), Uses: selectorUses(file)}
+	f.Lines = bytes.Count(src, []byte("\n"))
+	if len(src) > 0 && src[len(src)-1] != '\n' {
+		f.Lines++
+	}
 	for _, spec := range file.Imports {
 		imp, err := strconv.Unquote(spec.Path.Value)
 		if err != nil {

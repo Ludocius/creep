@@ -1,6 +1,7 @@
 package main
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -48,6 +49,8 @@ func TestLayerTableFailsBudget(t *testing.T) {
 		{"lower layer not in the row", "cmd/app/main.go", imp("main", "internal/base"), "does not list it"},
 		{"upward import from a test", "internal/base/b_test.go", imp("base", "internal/top"), "may import only lower layers"},
 		{"product imports tooling", "internal/top/t.go", imp("top", "internal/tools/gen"), "build tooling is never imported by the product"},
+		{"prefix look-alike of tooling has no row", "internal/toolsx/x.go", "package toolsx\n", "package example.com/m/internal/toolsx has no row"},
+		{"product imports a tooling look-alike", "internal/top/t.go", imp("top", "internal/toolsx"), "it has no row"},
 		{"import of a package missing from the table", "internal/top/t.go", imp("top", "internal/ghost"), "it has no row"},
 	}
 	for _, tt := range tests {
@@ -95,10 +98,53 @@ func TestParseLayersRejectsMalformedTables(t *testing.T) {
 	}
 }
 
-// The step fails, rather than passing, when the document is missing.
-func TestLayerProblemsNeedsTheDocument(t *testing.T) {
-	root := writeTree(t, map[string]string{"go.mod": "module example.com/m\n\ngo 1.24\n"})
-	if _, err := layerProblems(config{root: root, architecture: "docs/architecture.md"}); err == nil {
-		t.Error("layerProblems() succeeded without docs/architecture.md")
+// The step fails, rather than passing, when the document is missing or its
+// table does not parse.
+func TestLayerProblemsSurfacesTableErrors(t *testing.T) {
+	tests := map[string]map[string]string{
+		"missing document": {},
+		"malformed table":  {"docs/architecture.md": "```layers\nx internal/a -\n```\n"},
 	}
+	for name, files := range tests {
+		t.Run(name, func(t *testing.T) {
+			files["go.mod"] = "module example.com/m\n\ngo 1.24\n"
+			root := writeTree(t, files)
+			if _, err := layerProblems(config{root: root, architecture: "docs/architecture.md"}); err == nil {
+				t.Error("layerProblems() succeeded")
+			}
+		})
+	}
+}
+
+// The checks guarded by tests only matter if `make budget` runs them.
+func TestCollectRunsEveryGuard(t *testing.T) {
+	want := map[string]func(config) ([]string, error){"layerProblems": layerProblems, "lineProblems": lineProblems}
+	for name, guard := range want {
+		found := false
+		for _, step := range steps {
+			found = found || reflect.ValueOf(step).Pointer() == reflect.ValueOf(guard).Pointer()
+		}
+		if !found {
+			t.Errorf("collect does not run %s", name)
+		}
+	}
+}
+
+// The file cap holds for every .go file, including ones the current
+// platform never builds, and skips testdata like the other checks.
+func TestLineProblems(t *testing.T) {
+	lines := func(n int) string { return "package p\n" + strings.Repeat("//\n", n-1) }
+	root := writeTree(t, map[string]string{
+		"go.mod":             "module example.com/m\n\ngo 1.24\n",
+		"p/ok.go":            lines(400),
+		"p/big_plan9.go":     "//go:build plan9\n\n" + lines(401),
+		"p/tagged.go":        "//go:build custom\n" + lines(400),
+		"p/noeol_test.go":    strings.TrimSuffix(lines(401), "\n") + "x",
+		"p/testdata/huge.go": lines(900),
+	})
+	got, err := lineProblems(config{root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMentions(t, got, []string{"p/big_plan9.go is 403 lines, cap is 400", "p/noeol_test.go is 401 lines", "p/tagged.go is 401 lines"})
 }
