@@ -52,7 +52,9 @@ func TestRun(t *testing.T) {
 		{"init stub", []string{"init"}, exitcode.ConfigError, nil, []string{"not implemented yet"}},
 		{"doctor stub", []string{"doctor"}, exitcode.ConfigError, nil, []string{"not implemented yet"}},
 		{"scan stub", []string{"scan", "."}, exitcode.ConfigError, nil, []string{"not implemented yet"}},
-		{"config stub", []string{"config", "explain"}, exitcode.ConfigError, nil, []string{"not implemented yet"}},
+		{"config without subcommand", []string{"config"}, exitcode.ConfigError, nil, []string{"missing subcommand"}},
+		{"config unknown subcommand", []string{"config", "show"}, exitcode.ConfigError, nil, []string{`unknown subcommand "show"`}},
+		{"config explain extra args", []string{"config", "explain", "x"}, exitcode.ConfigError, nil, []string{`unexpected arguments: ["x"]`}},
 		{"global flag missing value", []string{"--format"}, exitcode.ConfigError, nil, []string{"needs an argument", "Usage:"}},
 		{"single dash global flag", []string{"-format=json", "version"}, exitcode.OK, []string{"commit: "}, nil},
 		{"command short help", []string{"version", "-h"}, exitcode.OK, []string{"creep version", "Exit codes:"}, nil},
@@ -144,7 +146,7 @@ func TestFlagPositions(t *testing.T) {
 // TestStubsFailClosed guards the CI contract: an unbuilt command never exits 0.
 func TestStubsFailClosed(t *testing.T) {
 	for _, c := range commands {
-		if c.name == "version" {
+		if c.name == "version" || c.name == "config" {
 			continue
 		}
 		t.Run(c.name, func(t *testing.T) {
@@ -159,7 +161,7 @@ func TestStubsFailClosed(t *testing.T) {
 
 func TestHelpMarksUnimplementedCommands(t *testing.T) {
 	_, stdout, _ := run("--help")
-	for _, name := range []string{"init", "doctor", "scan", "config"} {
+	for _, name := range []string{"init", "doctor", "scan"} {
 		c, _ := findCommand(name)
 		assertContains(t, "usage", stdout, []string{c.name + " ", c.summary, "(not implemented yet)"})
 	}

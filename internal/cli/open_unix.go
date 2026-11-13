@@ -10,7 +10,7 @@ import (
 // openForCheck opens path without blocking: a plain open of a FIFO waits for a
 // writer forever, so creep would hang before it could reject the file.
 func openForCheck(path string) (*os.File, error) {
-	return os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	return os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0) //nolint:gosec // G703: opening the path the user or CREEP_POLICY names is the point; checkConfigPath vets it first
 }
 
 // restoreBlocking puts a file that passed the regular-file check back into

@@ -26,7 +26,7 @@ var commands = []command{
 	{"doctor", "check models, sandbox runtime and environment (not implemented yet)", stub("doctor", "#6, #21")},
 	{"scan", "scan a local repository for vulnerabilities (not implemented yet)", stub("scan", "the v0.1 milestone")},
 	{"version", "print version, commit and Go version", runVersion},
-	{"config", "show the effective configuration and its sources (not implemented yet)", stub("config", "#2")},
+	{"config", "explain: show each effective config value and the layer it came from", runConfig},
 }
 
 func findCommand(name string) (command, bool) {
