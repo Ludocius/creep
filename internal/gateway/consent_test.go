@@ -184,7 +184,7 @@ func TestSendWithoutConsent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := newModelServer(t, `{}`)
 			dir := runDir(t)
-			l, err := OpenEgressLog(dir, tt.consent)
+			l, err := OpenEgressLog(dir, tt.consent, roomyBudget(t))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -230,7 +230,7 @@ func TestSendWithConsentLogs(t *testing.T) {
 	m := newModelServer(t, `{}`)
 	dir := runDir(t)
 	c := newConsent(t, ConsentOptions{CI: true, Policy: []string{"http://127.0.0.1:" + m.port}})
-	l, err := OpenEgressLog(dir, c)
+	l, err := OpenEgressLog(dir, c, roomyBudget(t))
 	if err != nil {
 		t.Fatal(err)
 	}

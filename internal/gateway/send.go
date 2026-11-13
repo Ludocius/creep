@@ -52,6 +52,10 @@ type Call struct {
 	Payload    []byte         // exact request body; logged only as sha256 and file
 	Redactions map[string]int // marker label -> count in Payload; logged
 	Header     http.Header    // request headers (credentials); never logged
+	// ReserveTokens is charged to the Budget before anything is written or
+	// sent: the payload's input tokens plus the most output the request
+	// allows. Must be positive. The provider's reported Usage replaces it.
+	ReserveTokens int
 	// Usage extracts token counts from the reply body for the result line.
 	// Provider adapters supply it; nil records no tokens.
 	Usage func(body []byte) (Usage, bool)
@@ -97,8 +101,10 @@ type resultLine struct {
 	Tokens  *Usage `json:"tokens,omitempty"`
 }
 
-// Send checks consent for the endpoint's origin, records call in the log,
-// then POSTs it with client and records the result. Write-ahead: the
+// Send checks consent for the endpoint's origin, reserves the call in the
+// log's Budget and waits for a concurrency slot, records call in the log,
+// then POSTs it with client and records the result. A refusal by consent or
+// budget, or a wait ended by ctx, writes and sends nothing. Write-ahead: the
 // payload file and the request line are written and synced first, and any
 // failure there returns before the request is built,
 // so nothing is sent that egress.log does not show. A failure to write the
@@ -122,12 +128,25 @@ func (l *EgressLog) Send(ctx context.Context, client *Client, call Call) (*Reply
 	if err := l.checkConsent(call.Endpoint, endpoint); err != nil {
 		return nil, err
 	}
-	id, err := l.logRequest(call, endpoint)
+	t, err := l.admit(ctx, call)
 	if err != nil {
 		return nil, err
 	}
+	return l.exchange(ctx, client, call, endpoint, t)
+}
+
+// exchange logs, sends and logs the result of an admitted call, returning
+// its concurrency slot and settling its tokens once the reply is in.
+func (l *EgressLog) exchange(ctx context.Context, client *Client, call Call, endpoint string, t *ticket) (*Reply, error) {
+	id, err := l.logRequest(call, endpoint)
+	if err != nil {
+		t.cancel()
+		return nil, err
+	}
 	status, body, sendErr := post(ctx, withoutRedirects(client.hc), call)
-	if err := l.logResult(id, call, status, body, sendErr); err != nil {
+	used := reportedUsage(call, body, sendErr)
+	t.finish(status, sendErr, used)
+	if err := l.logResult(id, status, used, sendErr); err != nil {
 		return nil, errors.Join(sendErr, err)
 	}
 	if sendErr != nil {
@@ -158,6 +177,9 @@ func (l *EgressLog) checkConsent(raw, logged string) error {
 func checkCall(call Call) (string, error) {
 	if !validLogField(call.Model) || !validLogField(call.Purpose) {
 		return "", fmt.Errorf("gateway call: %w", ErrLabel)
+	}
+	if call.ReserveTokens <= 0 {
+		return "", fmt.Errorf("gateway call: %w", ErrReserveTokens)
 	}
 	u, err := url.Parse(call.Endpoint)
 	if err != nil || !u.IsAbs() || u.Host == "" {
@@ -218,8 +240,8 @@ func (l *EgressLog) logRequest(call Call, endpoint string) (string, error) {
 	})
 }
 
-func (l *EgressLog) logResult(id string, call Call, status int, body []byte, sendErr error) error {
-	line := resultLine{V: logVersion, Type: "result", ID: id, Time: now(), Outcome: OutcomeResponse, Status: status}
+func (l *EgressLog) logResult(id string, status int, used *Usage, sendErr error) error {
+	line := resultLine{V: logVersion, Type: "result", ID: id, Time: now(), Outcome: OutcomeResponse, Status: status, Tokens: used}
 	switch {
 	case errors.Is(sendErr, ErrResponseTooLarge):
 		line.Outcome = OutcomeTooLarge
@@ -227,12 +249,21 @@ func (l *EgressLog) logResult(id string, call Call, status int, body []byte, sen
 		line.Outcome = OutcomeRedirect
 	case sendErr != nil:
 		line.Outcome = OutcomeTransport
-	case call.Usage != nil:
-		if u, ok := call.Usage(body); ok {
-			line.Tokens = &u
-		}
 	}
 	return l.writeLine(line)
+}
+
+// reportedUsage is the provider's token count for a reply, or nil when the
+// call failed or the provider reported none.
+func reportedUsage(call Call, body []byte, sendErr error) *Usage {
+	if sendErr != nil || call.Usage == nil {
+		return nil
+	}
+	u, ok := call.Usage(body)
+	if !ok {
+		return nil
+	}
+	return &u
 }
 
 // post sends the payload and reads at most maxResponseBytes of the reply.

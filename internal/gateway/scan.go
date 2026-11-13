@@ -20,6 +20,7 @@ const (
 	SkipRedactFailed SkipReason = "redact_failed" // any other redact.File error
 	SkipRunFull      SkipReason = "run_full"      // redact.ErrRunFull: the run stopped here
 	SkipSendFailed   SkipReason = "send_failed"   // Send failed: the run stopped here
+	SkipBudget       SkipReason = "budget"        // ErrBudgetExhausted: the run stopped here
 )
 
 // NotScanned is a file the model never saw in full. Path comes from the
@@ -33,8 +34,8 @@ type NotScanned struct {
 type ScanReport struct {
 	Fragments  int          // fragments sent
 	NotScanned []NotScanned // in input order
-	// Incomplete means the run stopped before its last file (run_full or
-	// send_failed): it must never be reported as a clean result.
+	// Incomplete means the run stopped before its last file (run_full,
+	// budget or send_failed): it must never be reported as a clean result.
 	Incomplete bool
 }
 
@@ -128,8 +129,11 @@ func redactSkip(err error) (SkipReason, error) {
 
 // sendSkip maps a Send error to its reason; every Send error stops the run.
 func sendSkip(err error) (SkipReason, error) {
-	if errors.Is(err, redact.ErrRunFull) {
+	switch {
+	case errors.Is(err, redact.ErrRunFull):
 		return SkipRunFull, err
+	case errors.Is(err, ErrBudgetExhausted):
+		return SkipBudget, err
 	}
 	return SkipSendFailed, err
 }

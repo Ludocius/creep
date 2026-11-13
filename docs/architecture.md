@@ -65,7 +65,7 @@ A package may import only packages in **lower** layers and only those listed in 
 | `buildinfo` | Version and provenance strings | none | ✅ |
 | `config` | Five config layers, org policy, CI detection | Project file never loosens CI gates or grants consent (#61, #82) | ✅ (#62, #63 open) |
 | `redact` | Secret and PII redaction with stable markers | Whole file redacted before fragmenting; linear time; `ErrRunFull` fails closed | ✅ (follow-ups open) |
-| `gateway` | **Only** network path | Allowlist before DNS, TLS, pinning, no redirects, consent, write-ahead `egress.log`, opaque client | 🔶 #83, #84 open |
+| `gateway` | **Only** network path | Allowlist before DNS, TLS, pinning, no redirects, consent, run and endpoint token budget, AIMD concurrency, write-ahead `egress.log`, opaque client | ✅ |
 | `models` | HTTP and command contracts, tool canary | No provider-specific code; model output never executed | ⬜ #5, #6 |
 | `state` | JSONL run state, `--record`, `--replay`, resume | Append-only; replay is deterministic | ⬜ #8 |
 | `static` | tree-sitter (WASM) routes, sinks and auth; optional scanners | Output is IDs and enums only | ⬜ #85–#88, #10 |
@@ -152,6 +152,7 @@ Automated checks that guard an architectural property. A new property needs a ch
 | Agent loop cannot erode | Pinned policy phrases in AGENTS.md, CONTRIBUTING.md, PR template (`policy.go`) | `make budget` |
 | Workflows are pinned and safe | Immutable action/image pins, no `pull_request_target`; actionlint, zizmor | `make budget`, CI |
 | Secrets never leave unredacted | Redaction leak tests (`redact/*_test.go`), gateway fragment scan test | `make check` |
+| Model spend is bounded | Over-budget and concurrent-overspend tests, AIMD table test (`gateway/budget_test.go`, `aimd_test.go`; race on Linux CI) | `make check` |
 | Redaction stays linear | `TestRedactLargeInputIsBounded`; `Benchmark*` in `internal/redact` | `make check`; benchmarks at the per-version review |
 | No known-vulnerable code or leaked secret | govulncheck, gitleaks over full history, CodeQL | CI |
 | Layer table holds | `layers` block in §3: every module package has a row and imports only lower layers its row lists (`layers.go`) | `make budget`, CI `budget` |
