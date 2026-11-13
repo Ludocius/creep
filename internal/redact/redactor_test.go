@@ -263,3 +263,23 @@ func TestRedactLazyMatchCannotHideSecret(t *testing.T) {
 		t.Fatalf("key body leaked: %q", out)
 	}
 }
+
+// MarkerCounts counts only the markers this run issued, by label: escaped
+// repository text and markers of no run do not count.
+func TestMarkerCounts(t *testing.T) {
+	rng := rand.New(rand.NewPCG(15, 16))
+	r := newRedactor(t)
+	text := "k := \"" + fakeAWS(rng) + "\" // x@y.org, z@y.org, x@y.org <PII_EMAIL_1> <SECRET_X_1>\n"
+	out := mustRedact(t, r, text)
+	aws := markerRe.FindString(out)
+	got := r.MarkerCounts(out + " <PII_EMAIL_9> <PII_EMAIL_1")
+	want := map[string]int{"PII_EMAIL": 3, aws[1:strings.LastIndexByte(aws, '_')]: 1}
+	if len(got) != len(want) {
+		t.Fatalf("MarkerCounts(%q) = %v, want %v", out, got, want)
+	}
+	for label, n := range want {
+		if got[label] != n {
+			t.Fatalf("MarkerCounts(%q) = %v, want %v", out, got, want)
+		}
+	}
+}

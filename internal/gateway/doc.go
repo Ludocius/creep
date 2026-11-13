@@ -7,10 +7,10 @@
 //     other package, test files and dev tooling included, imports them or
 //     reaches them through a dependency; golangci-lint's depguard rule gives
 //     the same feedback in editors.
-//   - Every model call is redacted first: repository text is passed through
-//     redact.File before it is fragmented, every fragment through the run's
-//     Redactor before it is sent, and a run that returns redact.ErrRunFull
-//     stops sending and is reported as incomplete.
+//   - Every model call is redacted first: FileScan passes each repository
+//     file whole through the run's redact.File and cuts only its output, and
+//     a run that returns redact.ErrRunFull stops sending and is reported as
+//     incomplete.
 //   - Every request is recorded in egress.log, so a user can audit exactly
 //     what was sent and where.
 //   - It connects only to configured model endpoints; creep has no telemetry.
@@ -85,7 +85,25 @@
 //   - The scanned repository cannot grant consent: creep.yaml has no consent
 //     key and the store lives in the user's directory, never the repo.
 //
-// Seams for the rest of #3: Call.Payload and Call.Redactions come from the
-// run's Redactor (#83); the token budget (#84) checks Call before sending
+// FileScan is how repository text becomes Call payloads (scan.go):
+//   - Each file is redacted whole by redact.File, then cut at line ends into
+//     fragments of at most MaxFragmentBytes (a longer line goes alone, never
+//     truncated). Only File output is cut, so no boundary splits a secret.
+//     Fragments are not passed through Redact again: File already ran every
+//     detector, and Redact would escape File's own markers.
+//   - Fragment.Redactions counts the run's markers in the fragment by label,
+//     for Call.Redactions.
+//   - A file that cannot be read or that File rejects (ErrFileTooLarge;
+//     ErrLineTooLong for minified, binary or CR-only files; any other error)
+//     is never sent, raw or truncated, and is listed in ScanReport.NotScanned.
+//   - redact.ErrRunFull from File, or from a Redact the caller makes inside
+//     Send, and any other Send error stop the run: that file and every later
+//     one are listed as not scanned, ScanReport.Incomplete is set and Run
+//     returns the error. An incomplete scan is never a clean result.
+//   - SkipReason is a closed enum so run output never quotes error text;
+//     NotScanned.Path comes from the repository and must be escaped when
+//     printed.
+//
+// Seam for the rest of #3: the token budget (#84) checks Call before sending
 // and reads Usage.
 package gateway
