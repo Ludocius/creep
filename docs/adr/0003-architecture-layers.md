@@ -1,6 +1,6 @@
 # ADR 0003: Architecture layers, stable contracts and maintainability decisions
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-13
 - **Deciders:** @Ludocius
 
@@ -20,7 +20,7 @@ Until now, `docs/design.md` was a 47-line summary, and `docs/map.md` did not exi
 
 Option C. `docs/architecture.md` is the single source of truth. Its `layers` block is data that `make budget` enforces (#119), and `docs/map.md` is generated and checked in CI (#120). The maintainability matrix in §6 is accepted as the plan: simplify `redact`, keep `gateway` with its API frozen after #84, trim `budget`, leave presets to the community, add languages only as kits, and keep calibration templates as data.
 
-**Module path (open, maintainer to decide before accepting):**
+**Module path:** move to `github.com/sneakercreepers/creep` now, while the code is small (maintainer decision, 2026-11-13). Options considered:
 
 | Option | Consequence |
 |---|---|
@@ -29,6 +29,7 @@ Option C. `docs/architecture.md` is the single source of truth. Its `layers` blo
 
 ## Consequences
 
+- The module path changes to `github.com/sneakercreepers/creep`: one PR for the module line and imports, then the repository transfer, tracked as a follow-up issue.
 - `docs/design.md` now points to `architecture.md`.
 - New packages must add a row to the `layers` block in the same PR, or `make budget` fails once #119 lands.
 - `planner` and `reader` can never import each other, enforced by the layer table.
