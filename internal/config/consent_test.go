@@ -20,6 +20,12 @@ func TestInCI(t *testing.T) {
 		{map[string]string{"CI": ""}, false},
 		{map[string]string{"TF_BUILD": "True"}, true},
 		{map[string]string{"JENKINS_URL": "https://ci.example/"}, true},
+		{map[string]string{"TEAMCITY_VERSION": "2025.1"}, true},
+		{map[string]string{"CODEBUILD_BUILD_ID": "proj:abc"}, true},
+		{map[string]string{"bamboo_buildKey": "PROJ-PLAN-JOB1"}, true},
+		{map[string]string{"BUILD_ID": "b1", "PROJECT_ID": "p1"}, true},
+		{map[string]string{"BUILD_ID": "b1"}, false},
+		{map[string]string{"PROJECT_ID": "p1"}, false},
 	}
 	for _, tt := range tests {
 		got := InCI(func(k string) string { return tt.env[k] })

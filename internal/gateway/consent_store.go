@@ -21,6 +21,10 @@ const consentVersion = 1
 // maxConsentBytes bounds the consent file read into memory.
 const maxConsentBytes = 1 << 20
 
+// testHookBeforeStoreOpen runs between the Lstat of the consent store and
+// its open, so tests can swap the file in that window.
+var testHookBeforeStoreOpen = func(string) {}
+
 // consentFile is the stored form: {"v":1,"endpoints":["https://h:443"]}.
 type consentFile struct {
 	V         int      `json:"v"`
@@ -62,6 +66,7 @@ func readStoreFile(path string) ([]byte, error) {
 	if err := checkStoreFile(path, before); err != nil {
 		return nil, err
 	}
+	testHookBeforeStoreOpen(path)
 	f, err := os.OpenFile(path, os.O_RDONLY|extraOpenFlags, 0)
 	if err != nil {
 		return nil, fmt.Errorf("consent store: %w", err)

@@ -60,7 +60,7 @@ func (m *modelServer) stats() (conns int, bodies [][]byte) {
 }
 
 // client returns a gateway client that allows only this server.
-func (m *modelServer) client(t *testing.T) *http.Client {
+func (m *modelServer) client(t *testing.T) *Client {
 	t.Helper()
 	return newTestClient(t, Options{Allow: []string{"127.0.0.1:" + m.port}})
 }

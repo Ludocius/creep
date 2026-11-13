@@ -13,21 +13,27 @@ import (
 // not be asked, or (in CI) the policy does not list it.
 var ErrNoConsent = errors.New("no consent to send code to this endpoint")
 
-// ConsentError is returned by Send when consent is missing. Its ExitCode is
-// exitcode.ConfigError (2): the fix is in configuration, not in the model.
+// ConsentError is returned by Send when consent is missing or cannot be
+// determined (an unreadable or unsafe consent store, Err). Both fail closed
+// the same way: nothing is sent and ExitCode is exitcode.ConfigError (2),
+// because the fix is in configuration, not in the model.
 type ConsentError struct {
 	Endpoint string // normalized origin, e.g. "https://api.example.com:443"
 	CI       bool
+	Err      error // why consent could not be read; nil for a plain refusal
 }
 
 func (e *ConsentError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("%s: %v: %v; nothing was sent", e.Endpoint, ErrNoConsent, e.Err)
+	}
 	if e.CI {
 		return fmt.Sprintf("%s: %v; in CI consent comes only from the policy file (CREEP_POLICY, key consent)", e.Endpoint, ErrNoConsent)
 	}
 	return fmt.Sprintf("%s: %v; nothing was sent", e.Endpoint, ErrNoConsent)
 }
 
-func (e *ConsentError) Unwrap() error { return ErrNoConsent }
+func (e *ConsentError) Unwrap() []error { return []error{ErrNoConsent, e.Err} }
 
 // ExitCode is the process exit code for a run stopped by missing consent.
 func (e *ConsentError) ExitCode() int { return exitcode.ConfigError }
@@ -88,7 +94,7 @@ func NewConsent(opts ConsentOptions) (*Consent, error) {
 func (c *Consent) check(endpoint *url.URL) error {
 	key, err := origin(endpoint)
 	if err != nil {
-		return fmt.Errorf("consent: %w", err)
+		return &ConsentError{Endpoint: "(invalid endpoint)", CI: c.ci, Err: err}
 	}
 	if c.policy[key] {
 		return nil
@@ -100,7 +106,7 @@ func (c *Consent) check(endpoint *url.URL) error {
 	defer c.mu.Unlock()
 	ok, err := c.local(key)
 	if err != nil {
-		return err
+		return &ConsentError{Endpoint: key, Err: err}
 	}
 	if !ok {
 		return &ConsentError{Endpoint: key}

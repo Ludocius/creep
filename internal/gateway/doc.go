@@ -15,7 +15,10 @@
 //     what was sent and where.
 //   - It connects only to configured model endpoints; creep has no telemetry.
 //
-// NewClient enforces where requests may go, in this order and before any
+// NewClient returns an opaque *Client with no HTTP methods, so the only
+// exported way to send is EgressLog.Send (a test checks that no exported
+// API returns *http.Client, *http.Transport or http.RoundTripper). It
+// enforces where requests may go, in this order and before any
 // DNS lookup or dial:
 //   - Allowlist: the URL host and effective port must match an egress.allow
 //     entry. "host" covers only the scheme's default port (443 or 80);
@@ -68,8 +71,9 @@
 // connection. It is per endpoint origin (scheme, host and effective port,
 // normalized like egress.allow), never global:
 //   - In CI (config.InCI) consent comes only from the policy file's consent
-//     list; nothing prompts and the local store is ignored. A missing entry
-//     returns a *ConsentError whose ExitCode is 2.
+//     list (CI detection: config.InCI); nothing prompts and the local store
+//     is ignored. A missing entry returns a *ConsentError whose ExitCode is
+//     2; so does an unreadable or unsafe store (fail closed).
 //   - Locally the policy, then the user's consent store (a 0600 JSON file of
 //     origins, replaced atomically, refused when it is a link, another
 //     user's or writable by others), then the injected Prompt. A yes is

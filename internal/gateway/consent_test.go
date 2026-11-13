@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -91,6 +90,16 @@ func TestConsentDecision(t *testing.T) {
 	}
 }
 
+// In CI the prompt is never called, so a run can never wait on input.
+func TestCINeverPrompts(t *testing.T) {
+	p := &countingPrompt{yes: true}
+	c := newConsent(t, ConsentOptions{CI: true, StorePath: filepath.Join(t.TempDir(), "c.json"), Prompt: p.prompt})
+	_ = c.check(mustURL(t, "https://a.example/"))
+	if len(p.asked) != 0 {
+		t.Fatalf("CI prompted for %q", p.asked)
+	}
+}
+
 func TestBadPolicyEntry(t *testing.T) {
 	for _, s := range []string{
 		"api.example.com", "ftp://api.example.com", "https://api.example.com/v1",
@@ -159,74 +168,6 @@ func TestDeclineNotStored(t *testing.T) {
 	}
 }
 
-func TestUnsafeStoreRefused(t *testing.T) {
-	tests := []struct {
-		name  string
-		setup func(t *testing.T, store string)
-	}{
-		{"not JSON", func(t *testing.T, store string) { writeStore(t, store, "nope") }},
-		{"wrong version", func(t *testing.T, store string) { writeStore(t, store, `{"v":2,"endpoints":[]}`) }},
-		{"unnormalized entry", func(t *testing.T, store string) {
-			writeStore(t, store, `{"v":1,"endpoints":["https://A.example"]}`)
-		}},
-		{"directory", func(t *testing.T, store string) {
-			if err := os.Mkdir(store, 0o700); err != nil {
-				t.Fatal(err)
-			}
-		}},
-		{"writable by others", func(t *testing.T, store string) {
-			if isWindows() {
-				t.Skip("Windows modes do not express ACLs")
-			}
-			writeStore(t, store, `{"v":1,"endpoints":["https://a.example:443"]}`)
-			chmod(t, store, 0o666)
-		}},
-		{"symlink", func(t *testing.T, store string) {
-			target := store + ".target"
-			writeStore(t, target, `{"v":1,"endpoints":["https://a.example:443"]}`)
-			if err := os.Symlink(target, store); err != nil {
-				t.Skipf("symlink: %v", err)
-			}
-		}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			store := filepath.Join(t.TempDir(), "consent.json")
-			tt.setup(t, store)
-			c := newConsent(t, ConsentOptions{StorePath: store, Prompt: answer(true, nil)})
-			err := c.check(mustURL(t, "https://a.example/"))
-			if err == nil || errors.Is(err, ErrNoConsent) {
-				t.Fatalf("check = %v, want a store error", err)
-			}
-		})
-	}
-}
-
-func writeStore(t *testing.T, path, data string) {
-	t.Helper()
-	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func checkPrivate(t *testing.T, path string) {
-	t.Helper()
-	info, err := os.Lstat(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !info.Mode().IsRegular() {
-		t.Fatalf("%s: mode %v, want a regular file", path, info.Mode())
-	}
-	if perm := info.Mode().Perm(); !isWindows() && perm != 0o600 {
-		t.Fatalf("%s: mode %v, want 0600", path, perm)
-	}
-}
-
-func isWindows() bool {
-	return runtime.GOOS == "windows"
-}
-
 // Without consent Send writes nothing to the run directory and opens no
 // connection, and the error maps to exit code 2.
 func TestSendWithoutConsent(t *testing.T) {
@@ -249,7 +190,7 @@ func TestSendWithoutConsent(t *testing.T) {
 			}
 			defer l.Close()
 			_, err = l.Send(context.Background(), m.client(t), testCall(m.url("/v1")))
-			checkRefusal(t, err, tt.consent != nil, tt.ci)
+			checkRefusal(t, err, tt.ci)
 			checkNothingWritten(t, dir)
 			if conns, bodies := m.stats(); conns != 0 || len(bodies) != 0 {
 				t.Fatalf("server saw %d connections, %d bodies; want none", conns, len(bodies))
@@ -258,16 +199,10 @@ func TestSendWithoutConsent(t *testing.T) {
 	}
 }
 
-func checkRefusal(t *testing.T, err error, wantType, ci bool) {
+func checkRefusal(t *testing.T, err error, ci bool) {
 	t.Helper()
-	if !errors.Is(err, ErrNoConsent) {
-		t.Fatalf("Send = %v, want ErrNoConsent", err)
-	}
 	var ce *ConsentError
-	if !wantType {
-		return
-	}
-	if !errors.As(err, &ce) || ce.CI != ci || ce.ExitCode() != exitcode.ConfigError {
+	if !errors.As(err, &ce) || ce.CI != ci || ce.ExitCode() != exitcode.ConfigError || !errors.Is(err, ErrNoConsent) {
 		t.Fatalf("Send = %#v, want *ConsentError CI=%v exit %d", err, ci, exitcode.ConfigError)
 	}
 }

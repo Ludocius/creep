@@ -109,20 +109,23 @@ type resultLine struct {
 // Redirects are not followed: a 307 or 308 would send the body again to a
 // path the log does not show. Returned errors never quote the endpoint's
 // userinfo or query string.
-func (l *EgressLog) Send(ctx context.Context, client *http.Client, call Call) (*Reply, error) {
+func (l *EgressLog) Send(ctx context.Context, client *Client, call Call) (*Reply, error) {
+	if client == nil {
+		return nil, errors.New("gateway call: nil client")
+	}
 	call.Payload = bytes.Clone(call.Payload)
 	endpoint, err := checkCall(call)
 	if err != nil {
 		return nil, err
 	}
-	if err := l.checkConsent(call.Endpoint); err != nil {
+	if err := l.checkConsent(call.Endpoint, endpoint); err != nil {
 		return nil, err
 	}
 	id, err := l.logRequest(call, endpoint)
 	if err != nil {
 		return nil, err
 	}
-	status, body, sendErr := post(ctx, withoutRedirects(client), call)
+	status, body, sendErr := post(ctx, withoutRedirects(client.hc), call)
 	if err := l.logResult(id, call, status, body, sendErr); err != nil {
 		return nil, errors.Join(sendErr, err)
 	}
@@ -135,12 +138,13 @@ func (l *EgressLog) Send(ctx context.Context, client *http.Client, call Call) (*
 // checkConsent runs before the payload file, the request line or any
 // connection, so a refused call leaves no trace in the run directory:
 // egress.log records only what was attempted, and a refusal is reported to
-// the caller as a *ConsentError instead.
-func (l *EgressLog) checkConsent(endpoint string) error {
+// the caller as a *ConsentError instead. logged is the endpoint without
+// credentials, the only form an error may quote.
+func (l *EgressLog) checkConsent(raw, logged string) error {
 	if l.consent == nil {
-		return fmt.Errorf("gateway call: %w", ErrNoConsent)
+		return fmt.Errorf("gateway call: %w", &ConsentError{Endpoint: logged, Err: errors.New("no consent configured")})
 	}
-	u, _ := url.Parse(endpoint) // checkCall parsed it already
+	u, _ := url.Parse(raw) // checkCall parsed it already
 	if err := l.consent.check(u); err != nil {
 		return fmt.Errorf("gateway call: %w", err)
 	}
