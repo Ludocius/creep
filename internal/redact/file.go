@@ -9,8 +9,11 @@ import (
 // MaxFileBytes bounds one File call. Ordinary code costs about 1.8 s per MiB
 // on a 2019 laptop CPU (BenchmarkFileRepoCode); input crafted to wake every
 // rule costs about 7 s per chunk (BenchmarkRedact, "every keyword"), so about
-// two minutes at the cap. A larger cap would let one hostile file stall a scan
-// for longer; larger files fail closed with ErrFileTooLarge.
+// two minutes at the cap. The whole-file key scan is linear in the file size
+// (TestFileBlankTailIsLinear), but lines near MaxLineBytes make chunks overlap
+// more, so a crafted file can take several times longer. A larger cap would
+// let one hostile file stall a scan for longer; larger files fail closed with
+// ErrFileTooLarge.
 const MaxFileBytes = 1 << 20
 
 // MaxLineBytes bounds one line of a file given to File, newline included.
