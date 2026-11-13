@@ -1,22 +1,19 @@
 package cli
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"os"
 	"slices"
 	"strings"
+
+	"github.com/Ludocius/creep/internal/config"
 )
 
-// maxConfigBytes caps how much of a config file is read; real configs are a
-// few KiB, so anything larger is a mistake or an attack.
-const maxConfigBytes = 1 << 20
-
+// The config package owns the allowed values so flags and files agree.
 var (
-	logLevels = []string{"debug", "info", "warn", "error"}
-	formats   = []string{"text", "json", "sarif", "markdown"}
+	logLevels = config.Enum("log.level")
+	formats   = config.Enum("output.format")
 )
 
 // globalOptions are accepted before the command and after it.
@@ -24,10 +21,30 @@ type globalOptions struct {
 	logLevel   string
 	format     string
 	configPath string
+	// explicit holds the names of flags the user passed, so only those
+	// become the flags config layer; defaults must not override files.
+	explicit map[string]bool
 }
 
 func defaultOptions() globalOptions {
-	return globalOptions{logLevel: "info", format: "text"}
+	return globalOptions{logLevel: "info", format: "text", explicit: map[string]bool{}}
+}
+
+// markExplicit records the flags fs parsed from the command line.
+func markExplicit(fs *flag.FlagSet, opts *globalOptions) {
+	fs.Visit(func(f *flag.Flag) { opts.explicit[f.Name] = true })
+}
+
+// configFlags turns explicit flags into the flags config layer.
+func configFlags(opts globalOptions) []config.Flag {
+	var flags []config.Flag
+	if opts.explicit["format"] {
+		flags = append(flags, config.Flag{Name: "--format", Key: "output.format", Value: opts.format})
+	}
+	if opts.explicit["log-level"] {
+		flags = append(flags, config.Flag{Name: "--log-level", Key: "log.level", Value: opts.logLevel})
+	}
+	return flags
 }
 
 // newFlagSet returns a silent flag set with the global flags bound to opts.
@@ -95,71 +112,9 @@ func validateConfigPath(path string) error {
 	if path == "" {
 		return nil
 	}
-	f, err := openConfig(path)
+	f, _, err := openConfig("--config", path)
 	if err != nil {
 		return err
 	}
 	return f.Close()
-}
-
-// openConfig opens path once and checks the opened file itself, so a device
-// (NUL, CON, /dev/zero, a FIFO) or a swapped path cannot pass as a config file.
-func openConfig(path string) (*os.File, error) {
-	f, err := openForCheck(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("--config %q: file does not exist", path)
-	}
-	if err != nil {
-		return nil, configError(path, err)
-	}
-	if err := requireRegular(f, path); err != nil {
-		f.Close()
-		return nil, err
-	}
-	if err := restoreBlocking(f); err != nil {
-		f.Close()
-		return nil, configError(path, err)
-	}
-	return f, nil
-}
-
-func requireRegular(f *os.File, path string) error {
-	info, err := f.Stat()
-	if err != nil {
-		return configError(path, err)
-	}
-	if info.IsDir() {
-		return fmt.Errorf("--config %q: is a directory", path)
-	}
-	if !info.Mode().IsRegular() {
-		return fmt.Errorf("--config %q: not a regular file", path)
-	}
-	return nil
-}
-
-// readConfig returns the raw bytes of a config file for the parser (see #2).
-func readConfig(path string) ([]byte, error) {
-	f, err := openConfig(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	data, err := io.ReadAll(io.LimitReader(f, maxConfigBytes+1))
-	if err != nil {
-		return nil, configError(path, err)
-	}
-	if len(data) > maxConfigBytes {
-		return nil, fmt.Errorf("--config %q: larger than %d bytes", path, maxConfigBytes)
-	}
-	return data, nil
-}
-
-// configError drops the *os.PathError wrapper, which would repeat the path
-// unquoted and let control characters in it reach the terminal.
-func configError(path string, err error) error {
-	var pathErr *os.PathError
-	if errors.As(err, &pathErr) {
-		err = pathErr.Err
-	}
-	return fmt.Errorf("--config %q: %w", path, err)
 }

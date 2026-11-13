@@ -18,6 +18,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		return usageError("creep", err, stderr)
 	}
+	markExplicit(fs, &opts)
 	if wantHelp {
 		if invalidOptions(opts, stderr) {
 			return exitcode.ConfigError
@@ -97,6 +98,7 @@ func parseArgs(name string, args []string, opts *globalOptions) (positional []st
 	fs := newFlagSet(name, opts)
 	flagArgs, positional := splitArgs(fs, args)
 	wantHelp, err = parseFlags(fs, flagArgs)
+	markExplicit(fs, opts)
 	return positional, wantHelp, err
 }
 

@@ -1,0 +1,17 @@
+KEY                     VALUE                             SOURCE
+model.contract          "openai"                          default
+model.endpoint          "https://models.corp.example/v1"  policy "policy.yaml"
+model.name              "local-model"                     user "~/.creep/config.yaml"
+model.tier              "large"                           user "~/.creep/config.yaml"
+egress.allow            []                                default
+gates.pr                "probable:medium"                 project "creep.yaml"
+gates.nightly           "verified:high"                   default
+budget.max_tokens       2000000                           default
+budget.max_calls        500                               default
+report.formats          ["sarif"]                         project "creep.yaml"
+scanners.enabled        ["gitleaks", "semgrep"]           user "~/.creep/config.yaml"
+sandbox.enabled         false                             default
+sandbox.runtime         "docker"                          default
+calibration.cache_days  7                                 project "creep.yaml"
+output.format           "text"                            default
+log.level               "debug"                           flag --log-level

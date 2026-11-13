@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "creep.yaml and ~/.creep/config.yaml. Generated from internal/config; do not edit by hand.",
+  "properties": {
+    "budget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_calls": {
+          "default": 500,
+          "description": "Maximum model calls per scan.",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_tokens": {
+          "default": 2000000,
+          "description": "Maximum model tokens per scan.",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "calibration": {
+      "additionalProperties": false,
+      "properties": {
+        "cache_days": {
+          "default": 30,
+          "description": "Days a model calibration stays valid.",
+          "maximum": 365,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "egress": {
+      "additionalProperties": false,
+      "properties": {
+        "allow": {
+          "default": [],
+          "description": "Hosts (host or host:port) the gateway may contact. Cannot be set in the project file.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "gates": {
+      "additionalProperties": false,
+      "properties": {
+        "nightly": {
+          "default": "verified:high",
+          "description": "Nightly gate: \u003cstatus\u003e:\u003cseverity\u003e or none.",
+          "pattern": "^(none|(verified|probable):(critical|high|medium|low|info))$",
+          "type": "string"
+        },
+        "pr": {
+          "default": "probable:critical",
+          "description": "Pull request gate: \u003cstatus\u003e:\u003cseverity\u003e or none. Exit 1 when a finding reaches it.",
+          "pattern": "^(none|(verified|probable):(critical|high|medium|low|info))$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "log": {
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "default": "info",
+          "description": "Log level (flag --log-level).",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "model": {
+      "additionalProperties": false,
+      "properties": {
+        "contract": {
+          "default": "openai",
+          "description": "How creep talks to the model: an HTTP API (openai, anthropic) or a local command.",
+          "enum": [
+            "openai",
+            "anthropic",
+            "command"
+          ],
+          "type": "string"
+        },
+        "endpoint": {
+          "default": "",
+          "description": "Base URL of the model API (http:// or https://). Cannot be set in the project file.",
+          "type": "string"
+        },
+        "name": {
+          "default": "",
+          "description": "Model name sent to the endpoint.",
+          "type": "string"
+        },
+        "tier": {
+          "default": "medium",
+          "description": "Model tier; selects the prompt variant.",
+          "enum": [
+            "small",
+            "medium",
+            "large"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "output": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "default": "text",
+          "description": "Terminal output format (flag --format).",
+          "enum": [
+            "text",
+            "json",
+            "sarif",
+            "markdown"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "report": {
+      "additionalProperties": false,
+      "properties": {
+        "formats": {
+          "default": [
+            "json",
+            "markdown",
+            "sarif"
+          ],
+          "description": "Report files written after a scan.",
+          "items": {
+            "enum": [
+              "json",
+              "markdown",
+              "sarif"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "sandbox": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Run proofs of concept in a container (v0.2). The sandbox never has internet access.",
+          "type": "boolean"
+        },
+        "runtime": {
+          "default": "docker",
+          "description": "Container runtime for the sandbox.",
+          "enum": [
+            "docker",
+            "podman"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "scanners": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": [],
+          "description": "Optional external scanners to run when installed.",
+          "items": {
+            "enum": [
+              "gitleaks",
+              "osv-scanner",
+              "semgrep"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "title": "creep project and user configuration",
+  "type": "object"
+}
