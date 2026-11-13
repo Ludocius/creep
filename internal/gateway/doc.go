@@ -31,12 +31,16 @@
 //
 // The dialer then pins addresses: each allowlisted host is resolved once per
 // client and later dials use only the pinned IPs, while TLS still verifies
-// the certificate and sends SNI and Host for the hostname. "localhost" is
-// never resolved; it means 127.0.0.1, then ::1. A DNS answer containing any
-// non-public address (loopback, private, CGNAT, link-local and cloud
-// metadata, multicast, NAT64 or 6to4 forms of those) is refused whole unless
-// that exact IP is itself an egress.allow entry, which is the opt-in for a
-// model served on a private network.
+// the certificate and sends SNI and Host for the hostname. A slow lookup
+// holds only its own host. "localhost" is never resolved; it means
+// 127.0.0.1, then ::1. A DNS answer containing any non-public address
+// (loopback, private, CGNAT, link-local and cloud metadata, multicast, or
+// NAT64, SIIT and 6to4 forms of those) is refused whole, always. A model on a
+// private network is reached by allowlisting and requesting its IP literal
+// ("10.0.0.5:8443"); that entry never vouches for a name resolving to it.
+//
+// Dial, TLS handshake and response-header waits have fixed default timeouts
+// (client.go) until they get config keys.
 //
 // Proxy environment variables are ignored: a proxy resolves names itself,
 // which would bypass the address checks and pinning above.

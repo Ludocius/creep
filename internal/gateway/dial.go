@@ -35,8 +35,15 @@ type pinningDialer struct {
 	resolver Resolver
 	dial     DialFunc
 
-	mu     sync.Mutex
-	pinned map[string][]netip.Addr
+	mu     sync.Mutex // guards pinned, never held during a lookup
+	pinned map[string]*pin
+}
+
+// pin holds one host's addresses. Its own lock serializes the first lookup
+// of that host, so a slow lookup stalls only dials to the same host.
+type pin struct {
+	mu    sync.Mutex
+	addrs []netip.Addr
 }
 
 func (d *pinningDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -59,18 +66,27 @@ func (d *pinningDialer) DialContext(ctx context.Context, network, addr string) (
 }
 
 // pin returns the cached addresses of host, resolving on first use only.
-// The lock is held across the lookup so concurrent first calls resolve once.
+// A failed lookup is not cached. The map stays small: DialContext pins only
+// allowlisted hosts.
 func (d *pinningDialer) pin(ctx context.Context, host string) ([]netip.Addr, error) {
 	d.mu.Lock()
-	defer d.mu.Unlock()
-	if addrs, ok := d.pinned[host]; ok {
-		return addrs, nil
+	p, ok := d.pinned[host]
+	if !ok {
+		p = &pin{}
+		d.pinned[host] = p
+	}
+	d.mu.Unlock()
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.addrs != nil {
+		return p.addrs, nil
 	}
 	addrs, err := d.resolve(ctx, host)
 	if err != nil {
 		return nil, err
 	}
-	d.pinned[host] = addrs
+	p.addrs = addrs
 	return addrs, nil
 }
 
@@ -88,8 +104,10 @@ func (d *pinningDialer) resolve(ctx context.Context, host string) ([]netip.Addr,
 	return d.checkResolved(host, found)
 }
 
-// checkResolved refuses the whole answer if any address is non-public and
-// not explicitly allowlisted: a mixed answer is itself a rebinding signal.
+// checkResolved refuses the whole answer if any address is non-public: a
+// mixed answer is itself a rebinding signal. There is no exemption here; a
+// model on a private address is reached by allowlisting and requesting that
+// IP literal, which resolve returns without a lookup.
 func (d *pinningDialer) checkResolved(host string, found []netip.Addr) ([]netip.Addr, error) {
 	if len(found) == 0 {
 		return nil, fmt.Errorf("resolve %q: no addresses", host)
@@ -97,7 +115,7 @@ func (d *pinningDialer) checkResolved(host string, found []netip.Addr) ([]netip.
 	addrs := make([]netip.Addr, 0, len(found))
 	for _, ip := range found {
 		ip = ip.Unmap().WithZone("")
-		if !publicAddr(ip) && !d.allow.ips[ip] {
+		if !publicAddr(ip) {
 			return nil, fmt.Errorf("resolve %q: %s: %w", host, ip, ErrPrivateAddress)
 		}
 		addrs = append(addrs, ip)

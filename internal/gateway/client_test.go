@@ -167,19 +167,26 @@ func TestPrivateResolutionRefused(t *testing.T) {
 	}
 }
 
-// An explicit IP entry is the opt-in for a model behind a private address.
-func TestPrivateResolutionAllowedWhenListed(t *testing.T) {
+// An IP entry permits requests to that IP literal only; it never vouches for
+// a name that resolves to it, whatever the port.
+func TestIPEntryDoesNotVouchForNames(t *testing.T) {
 	srv, roots := newTLSServer(t, okHandler())
 	port := serverPort(t, srv)
-	res := newResolver(map[string][]string{"example.com": {"10.0.0.5"}})
-	d := &recordingDial{target: srv.Listener.Addr().String()}
-	allow := []string{"example.com:" + port, "10.0.0.5"}
-	c := newTestClient(t, Options{Allow: allow, Resolver: res, Dial: d.dial, RootCAs: roots})
-	if _, err := get(c, "https://example.com:"+port+"/"); err != nil {
-		t.Fatal(err)
+	allows := [][]string{
+		{"example.com:" + port, "10.0.0.5"},
+		{"example.com:" + port, "10.0.0.5:" + port},
+		{"example.com:" + port, "10.0.0.5:8443"},
 	}
-	if got := d.dialed(); len(got) != 1 || got[0] != "10.0.0.5:"+port {
-		t.Errorf("dialed %v, want [10.0.0.5:%s]", got, port)
+	for _, allow := range allows {
+		res := newResolver(map[string][]string{"example.com": {"10.0.0.5"}})
+		d := &recordingDial{target: srv.Listener.Addr().String()}
+		c := newTestClient(t, Options{Allow: allow, Resolver: res, Dial: d.dial, RootCAs: roots})
+		if _, err := get(c, "https://example.com:"+port+"/"); !errors.Is(err, ErrPrivateAddress) {
+			t.Errorf("allow %v: err = %v, want ErrPrivateAddress", allow, err)
+		}
+		if len(d.dialed()) != 0 {
+			t.Errorf("allow %v: dialed %v", allow, d.dialed())
+		}
 	}
 }
 

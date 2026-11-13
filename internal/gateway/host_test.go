@@ -127,10 +127,16 @@ func TestPublicAddr(t *testing.T) {
 		{"100.64.0.1", false},
 		{"::ffff:10.0.0.1", false}, // IPv4-mapped private
 		{"::ffff:169.254.169.254", false},
-		{"::7f00:1", false},           // IPv4-compatible loopback
-		{"64:ff9b::a9fe:a9fe", false}, // NAT64 of 169.254.169.254
-		{"64:ff9b::7f00:1", false},    // NAT64 of 127.0.0.1
-		{"2002:7f00:1::", false},      // 6to4 of 127.0.0.1
+		{"::7f00:1", false},             // IPv4-compatible loopback
+		{"64:ff9b::a9fe:a9fe", false},   // NAT64 of 169.254.169.254
+		{"64:ff9b::7f00:1", false},      // NAT64 of 127.0.0.1
+		{"::ffff:0:7f00:1", false},      // SIIT of 127.0.0.1
+		{"::ffff:0:a9fe:a9fe", false},   // SIIT of 169.254.169.254
+		{"::ffff:0:a00:1", false},       // SIIT of 10.0.0.1
+		{"::ffff:0:5db8:d822", true},    // SIIT of a public IPv4
+		{"64:ff9b:1::a9fe:a9fe", false}, // local-use NAT64
+		{"168.63.129.16", false},        // Azure WireServer
+		{"2002:7f00:1::", false},        // 6to4 of 127.0.0.1
 		{"fe80::1", false},
 		{"fc00::1", false},
 		{"ff02::1", false},

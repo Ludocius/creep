@@ -25,24 +25,21 @@ type endpoint struct {
 	port string // "" means the default port of the request's scheme
 }
 
-// allowlist is egress.allow after normalization. IP-literal entries also
-// permit that address when a DNS answer returns it (see dial.go).
+// allowlist is egress.allow after normalization. An IP-literal entry permits
+// only requests whose URL names that IP and port; it never vouches for a DNS
+// name that resolves to the same address (see dial.go).
 type allowlist struct {
 	endpoints map[endpoint]bool
-	ips       map[netip.Addr]bool
 }
 
 func parseAllowlist(entries []string) (allowlist, error) {
-	a := allowlist{endpoints: map[endpoint]bool{}, ips: map[netip.Addr]bool{}}
+	a := allowlist{endpoints: map[endpoint]bool{}}
 	for _, s := range entries {
 		e, err := parseEntry(s)
 		if err != nil {
 			return allowlist{}, fmt.Errorf("egress.allow entry %q: %w", s, err)
 		}
 		a.endpoints[e] = true
-		if ip, err := netip.ParseAddr(e.host); err == nil {
-			a.ips[ip] = true
-		}
 	}
 	return a, nil
 }

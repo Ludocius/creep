@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/netip"
 	"net/url"
 	"time"
 )
@@ -16,6 +15,17 @@ import (
 var ErrRedirect = errors.New("redirect to another origin refused")
 
 const maxRedirects = 10
+
+// Default timeouts, so a stalled endpoint cannot hang a scan. They are
+// constants until the token-budget work (#84) gives them config keys. The
+// response-header wait is long because a non-streaming model answer arrives
+// only when generation ends.
+const (
+	dialTimeout           = 10 * time.Second
+	tlsHandshakeTimeout   = 10 * time.Second
+	responseHeaderTimeout = 5 * time.Minute
+	idleConnTimeout       = 90 * time.Second
+)
 
 // Options configures NewClient. Only Allow comes from configuration
 // (egress.allow); the rest exist so tests can run without real DNS or
@@ -43,13 +53,13 @@ func NewClient(opts Options) (*http.Client, error) {
 		allow:    allow,
 		resolver: opts.Resolver,
 		dial:     opts.Dial,
-		pinned:   map[string][]netip.Addr{},
+		pinned:   map[string]*pin{},
 	}
 	if d.resolver == nil {
 		d.resolver = net.DefaultResolver
 	}
 	if d.dial == nil {
-		d.dial = (&net.Dialer{Timeout: 10 * time.Second}).DialContext
+		d.dial = (&net.Dialer{Timeout: dialTimeout}).DialContext
 	}
 	return &http.Client{
 		Transport:     guard{allow: allow, next: newTransport(d, opts.RootCAs)},
@@ -59,13 +69,14 @@ func NewClient(opts Options) (*http.Client, error) {
 
 func newTransport(d *pinningDialer, roots *x509.CertPool) *http.Transport {
 	return &http.Transport{
-		Proxy:               nil,
-		DialContext:         d.DialContext,
-		ForceAttemptHTTP2:   true,
-		TLSClientConfig:     &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots},
-		TLSHandshakeTimeout: 10 * time.Second,
-		IdleConnTimeout:     90 * time.Second,
-		MaxIdleConns:        16,
+		Proxy:                 nil,
+		DialContext:           d.DialContext,
+		ForceAttemptHTTP2:     true,
+		TLSClientConfig:       &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots},
+		TLSHandshakeTimeout:   tlsHandshakeTimeout,
+		ResponseHeaderTimeout: responseHeaderTimeout,
+		IdleConnTimeout:       idleConnTimeout,
+		MaxIdleConns:          16,
 	}
 }
 
