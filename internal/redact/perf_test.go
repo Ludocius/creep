@@ -1,6 +1,9 @@
 package redact
 
 import (
+	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -24,6 +27,8 @@ func largeInputs() map[string]string {
 		"passwords": fill("password=x "),
 		"url creds": fill("a://b:c@"),
 		"aws 40":    "AKIA" + strings.Repeat("A", 16) + fill("Ab3/+")[20:],
+		"key body":  fill(strings.Repeat("Ab3/+9x", 10)[:64] + "\n"),
+		"pem edges": fill("-----BEGIN PRIV" + "ATE KEY-----\n-----END EC PRIV" + "ATE KEY-----\n"),
 	}
 }
 
@@ -72,5 +77,45 @@ func BenchmarkRedact(b *testing.B) {
 				}
 			}
 		})
+	}
+}
+
+// repoChunks cuts the repository's own Go sources into chunks of at most
+// MaxInputBytes, split at line ends: real code, the common input.
+func repoChunks(tb testing.TB) []string {
+	tb.Helper()
+	var chunks []string
+	var cur strings.Builder
+	err := filepath.WalkDir("../..", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") {
+			return err
+		}
+		data, err := os.ReadFile(path)
+		for _, line := range strings.SplitAfter(string(data), "\n") {
+			if cur.Len()+len(line) > MaxInputBytes {
+				chunks = append(chunks, cur.String())
+				cur.Reset()
+			}
+			cur.WriteString(line)
+		}
+		return err
+	})
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return append(chunks, cur.String())
+}
+
+// BenchmarkRedactRepoCode measures the ordinary case: the repository's own
+// code in full-size chunks.
+func BenchmarkRedactRepoCode(b *testing.B) {
+	chunks := repoChunks(b)
+	r := newRedactor(b)
+	for b.Loop() {
+		for _, c := range chunks {
+			if _, err := r.Redact(c); err != nil {
+				b.Fatal(err)
+			}
+		}
 	}
 }

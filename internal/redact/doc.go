@@ -19,6 +19,17 @@
 //     passphrase and secret keys (quoted or bare, references such as ${VAR}
 //     left alone), and a bare 40-character AWS secret key when an AWS access
 //     key id is in the same input (credentials.go).
+//   - Private keys cut by a fragment boundary, which the gitleaks rule misses
+//     because it needs BEGIN and END in the same text (pem.go). After a BEGIN
+//     ... PRIVATE KEY line (any variant, PGP BLOCK included) everything is
+//     masked through the matching END line or the end of the fragment; before
+//     an END line, back to its BEGIN line or the start of the fragment. A key
+//     body with neither (a middle fragment) is masked as a run of two or more
+//     lines ending in a base64 token of one length between 40 and 76, or one
+//     such line alone at the start or end of the fragment; the run takes in
+//     the shorter last line and a partial first line. Prefixed digests
+//     (go.sum "h1:", "sha256:") and lowercase hex do not count. This can mask
+//     ordinary data, which is the safe side.
 //
 // When matches overlap they are merged and the most specific label names the
 // marker; each part is also remembered, so it is masked when it shows up

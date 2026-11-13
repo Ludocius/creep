@@ -104,6 +104,7 @@ func (r *Redactor) detect(text string) []span {
 			found = append(found, rule.find(text)...)
 		}
 	}
+	found = append(found, findPrivateKeys(text)...)
 	for _, d := range credentialDetectors {
 		found = append(found, d.find(text)...)
 	}

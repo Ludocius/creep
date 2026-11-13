@@ -20,6 +20,15 @@ var secretMakers = []func(*rand.Rand) string{
 	},
 	func(rng *rand.Rand) string { return "sk" + "_live_" + fakeToken(rng, alnum, 24) },
 	func(rng *rand.Rand) string { return "sk-" + "ant-api03-" + fakeToken(rng, alnum+"_-", 93) + "AA" },
+	// Keys cut by a fragment boundary: no END, no BEGIN, neither.
+	func(rng *rand.Rand) string {
+		return pemEdge("BEGIN", "OPENSSH") + "\n" + strings.Join(fakeBody(rng, 200, 70), "\n")
+	},
+	func(rng *rand.Rand) string {
+		return strings.Join(fakeBody(rng, 200, 64), "\n") + "\n" + pemEdge("END", "EC")
+	},
+	func(rng *rand.Rand) string { return strings.Join(fakeBody(rng, 128, 64), "\n") },
+	// The complete key stays last: TestRedactLazyMatchCannotHideSecret uses it.
 	func(rng *rand.Rand) string {
 		body := fakeToken(rng, alnum+"+/", 64) + "\n" + fakeToken(rng, alnum+"+/", 64)
 		return "-----BEGIN RSA PRIV" + "ATE KEY-----\n" + body + "\n-----END RSA PRIV" + "ATE KEY-----"
@@ -72,6 +81,9 @@ func FuzzRedactSecrets(f *testing.F) {
 	f.Add("api_key = ", "token: x@y.io 4111 1111 1111 1111", uint64(4), uint8(3))
 	f.Add("-----BEGIN PRIV"+"ATE KEY-----", "-----END", uint64(5), uint8(6))
 	f.Add("<<<", ">>>", uint64(6), uint8(5))
+	f.Add("x := `", "`", uint64(10), uint8(7))
+	f.Add("-----BEGIN EC PRIV"+"ATE KEY-----", "", uint64(11), uint8(8))
+	f.Add("", "-----END RSA PRIV"+"ATE KEY-----", uint64(12), uint8(9))
 	f.Add("\xff\xfe", "\x00", uint64(7), uint8(4))
 	f.Add("x = 1", "", uint64(8), uint8(7))
 	f.Add("[db]", "url: x", uint64(9), uint8(8))
@@ -87,6 +99,9 @@ func FuzzRedactSecrets(f *testing.F) {
 		if strings.Contains(out, secret) {
 			t.Fatalf("secret leaked\nsecret %q\noutput %q", secret, out)
 		}
+		if w := leakedWindow(windows(keyBodyLines(secret)), out); w != "" {
+			t.Fatalf("key body leaked %q\noutput %q", w, out)
+		}
 		if back := r.Unredact(out); back != text {
 			t.Fatalf("Unredact is not the inverse\n got %q\nwant %q", back, text)
 		}
@@ -95,4 +110,19 @@ func FuzzRedactSecrets(f *testing.F) {
 			t.Fatalf("known secret leaked in a later fragment: %q", again)
 		}
 	})
+}
+
+// keyBodyLines returns the lines of a multi-line secret other than PEM
+// header and footer lines: none of their 8-byte windows may leak.
+func keyBodyLines(secret string) []string {
+	if !strings.Contains(secret, "\n") {
+		return nil
+	}
+	var body []string
+	for _, line := range strings.Split(secret, "\n") {
+		if !strings.HasPrefix(line, "-----") {
+			body = append(body, line)
+		}
+	}
+	return body
 }
