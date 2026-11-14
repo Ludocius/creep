@@ -1,0 +1,4 @@
+[
+{"status":200,"body":{"id":"msg_replay","type":"message","role":"assistant","model":"replay-model","content":[{"type":"text","text":"The code looks vulnerable to SQL injection."}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":200,"output_tokens":11}}},
+{"status":200,"body":{"id":"msg_replay","type":"message","role":"assistant","model":"replay-model","content":[{"type":"tool_use","id":"toolu_replay","name":"output","input":{"vulnerable":true,"class":"sqli"}}],"stop_reason":"tool_use","stop_sequence":null,"usage":{"input_tokens":230,"output_tokens":31}}}
+]
