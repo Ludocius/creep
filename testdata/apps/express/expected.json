@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "app": "express",
+  "language": "javascript",
+  "framework": "express",
+  "vulnerable": [
+    {"class": "prototype_pollution", "file": "app.js", "line": 33, "route": "/settings", "sink": "target[key] = merge(target[key] || {}, value)"},
+    {"class": "nosql_injection", "file": "app.js", "line": 43, "route": "/login", "sink": "findOne({ username: username, password: password })"},
+    {"class": "command_injection", "file": "app.js", "line": 52, "route": "/diagnostics/ping", "sink": "exec(`ping -c 1 ${host}`"},
+    {"class": "idor", "file": "app.js", "line": 61, "route": "/orders/:id", "sink": "findOne({ _id: new ObjectId(req.params.id) })"}
+  ],
+  "safe": []
+}

@@ -27,8 +27,8 @@ make map                            # regenerate docs/map.md
 Tests never call a real model. They replay recorded responses from `testdata/replay`:
 
 ```sh
-creep scan testdata/apps/flask-sqli --record   # record with a local model (Ollama)
-go test ./...                                   # replays deterministically, no keys needed
+creep scan testdata/apps/flask/vulnerable --record   # record with a local model (Ollama)
+go test ./...                                         # replays deterministically, no keys needed
 ```
 
 ## Pull requests
