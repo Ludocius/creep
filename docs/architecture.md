@@ -167,7 +167,7 @@ Adapted from *Building Evolutionary Architectures* (Ford, Parsons, Kua), taking 
 |---|---|---|
 | Fitness functions | The checks in §9, in one table; add one only when a property has no automated guard | No fitness-function framework or dashboard |
 | Atomic vs holistic, triggered vs continual | Atomic and triggered: `make check` and CI on every PR. Holistic: the per-version review (whole diff, benchmarks over time) | No production monitoring (no telemetry, invariant 5) |
-| Incremental change | Small issues, one feature at a time, squash merges, sub-issues for L | — |
+| Incremental change | Small issues, up to three features in flight in different packages ([ADR 0006](adr/0006-three-features-in-flight.md)), squash merges, sub-issues for L | — |
 | Appropriate coupling (connascence) | Layer table and narrow interfaces; the auditor flags strong connascence across a package boundary | No coupling metrics tooling |
 | Anticorruption layer | Model contracts translate vendor output into closed schemas before planner or reader see it | — |
 | Last responsible moment | ADRs only when a dependency or public contract changes | — |
@@ -184,3 +184,4 @@ Skipped on purpose: architectural quanta per service, cross-service schema evolu
 | [0003](adr/0003-architecture-layers.md) | Layers, stable contracts, maintainability decisions, module path |
 | [0004](adr/0004-pentester-per-release.md) | Pentester once per version and on external PRs |
 | [0005](adr/0005-auditor-architecture-review.md) | Auditor reviews PRs against this document; per-version architecture review |
+| [0006](adr/0006-three-features-in-flight.md) | Up to three features in flight, each with its own loop |
