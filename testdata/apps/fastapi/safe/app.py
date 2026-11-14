@@ -6,7 +6,7 @@ Test fixture for creep. Do not deploy it or run it outside the creep sandbox.
 import os
 import secrets
 import sqlite3
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException
@@ -44,7 +44,6 @@ def require_admin(x_admin_token: str = Header(default="")):
 
 @app.get("/items")
 def list_items(sort: str = "name", conn: sqlite3.Connection = Depends(get_db)):
-    # Column names cannot be bound parameters, so map them from a fixed set.
     column = SORT_COLUMNS.get(sort)
     if column is None:
         raise HTTPException(status_code=400)
@@ -68,8 +67,11 @@ def delete_item(item_id: int, conn: sqlite3.Connection = Depends(get_db)):
 
 @app.post("/webhooks/test", dependencies=[Depends(require_admin)])
 def test_webhook(hook: Webhook):
-    parts = urlsplit(hook.url)
-    if parts.scheme != "https" or parts.hostname not in WEBHOOK_HOSTS or parts.port is not None:
+    if not hook.url.isprintable() or "\\" in hook.url or " " in hook.url:
         raise HTTPException(status_code=400)
-    resp = httpx.post(hook.url, json={"event": "ping"}, timeout=5, follow_redirects=False)
+    parts = urlsplit(hook.url)
+    if parts.scheme != "https" or parts.netloc not in WEBHOOK_HOSTS:
+        raise HTTPException(status_code=400)
+    target = urlunsplit(("https", parts.netloc, parts.path or "/", parts.query, ""))
+    resp = httpx.post(target, json={"event": "ping"}, timeout=5, follow_redirects=False)
     return {"status": resp.status_code}

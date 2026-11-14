@@ -4,7 +4,7 @@ Test fixture for creep. Do not deploy it or run it outside the creep sandbox.
 """
 
 import sqlite3
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 import requests
 from flask import Flask, abort, g, jsonify, request, send_from_directory
@@ -61,16 +61,17 @@ def get_note(note_id):
 def preview_link():
     current_user_id()
     url = request.get_json(force=True).get("url", "")
-    parts = urlsplit(url)
-    # A fixed host list: resolving and checking the IP would still race DNS rebinding.
-    if parts.scheme != "https" or parts.hostname not in PREVIEW_HOSTS or parts.port is not None:
+    if not url.isprintable() or "\\" in url or " " in url:
         abort(400)
-    resp = requests.get(url, timeout=5, allow_redirects=False)
+    parts = urlsplit(url)
+    if parts.scheme != "https" or parts.netloc not in PREVIEW_HOSTS:
+        abort(400)
+    target = urlunsplit(("https", parts.netloc, parts.path or "/", parts.query, ""))
+    resp = requests.get(target, timeout=5, allow_redirects=False)
     return jsonify({"status": resp.status_code, "length": len(resp.content)})
 
 
 @app.get("/attachments/<path:name>")
 def download_attachment(name):
     current_user_id()
-    # send_from_directory rejects names that leave UPLOAD_DIR.
     return send_from_directory(UPLOAD_DIR, name)

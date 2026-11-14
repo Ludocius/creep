@@ -77,10 +77,22 @@ func isRunnerFile(name string) bool {
 	switch {
 	case base == "Makefile", base == "GNUmakefile", strings.HasPrefix(base, "Dockerfile"):
 		return true
+	case base == "package.json", isComposeFile(base):
+		return true
 	case base == "action.yml", base == "action.yaml", path.Dir(name) == ".github/workflows":
 		return true
 	}
 	return runnerExts[strings.ToLower(path.Ext(name))]
+}
+
+// isComposeFile matches docker-compose*.yml and compose*.yml (and .yaml),
+// which `docker compose up` runs.
+func isComposeFile(base string) bool {
+	ext := path.Ext(base)
+	if ext != ".yml" && ext != ".yaml" {
+		return false
+	}
+	return strings.HasPrefix(base, "docker-compose") || strings.HasPrefix(base, "compose")
 }
 
 // mentionsApps matches the path with either separator, so a Windows script
