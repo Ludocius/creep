@@ -47,7 +47,7 @@ A package may import only packages in **lower** layers and only those listed in 
 3        internal/models         gateway config
 3        internal/state          config
 4        internal/static         state config
-4        internal/calibrate      models state config
+4        internal/calibrate      models gateway redact state config
 4        internal/planner        models state config
 4        internal/reader         models redact state config
 4        internal/sandbox        state config
@@ -69,7 +69,7 @@ A package may import only packages in **lower** layers and only those listed in 
 | `models` | HTTP and command contracts, tool canary | No provider SDK; model output decoded into closed structs, never executed; key only from `CREEP_API_KEY` | ✅ HTTP (#5); ⬜ command #6 |
 | `state` | JSONL run state, `--record`, `--replay`, resume | Append-only; replay is deterministic | ⬜ #8 |
 | `static` | tree-sitter (WASM) routes, sinks and auth; optional scanners | Output is IDs and enums only | ⬜ #85–#88, #10 |
-| `calibrate` | Seeded tasks, per-class score, tier, 30-day cache | Same seed gives the same tasks; runs through gateway | ✅ task generator (#89); ⬜ #90, #91 |
+| `calibrate` | Seeded tasks, per-class score, tier, 30-day cache | Same seed gives the same tasks; runs through gateway | ✅ task generator (#89), per-class Wilson score, probes and tier (#90); ⬜ #91 |
 | `planner` | Hypotheses from IDs and enums | **Never receives repository text** (no import of `reader`, `redact`, `static` text types) | ⬜ #12 |
 | `reader` | Quarantined reading, closed output schema | Output never flows to planner as text | ⬜ #92–#95 |
 | `report` | SARIF, JSON (`schema_version`), Markdown, coverage | Every class is covered, partial or not evaluated | ⬜ #14 |
@@ -160,6 +160,7 @@ Automated checks that guard an architectural property. A new property needs a ch
 | State shipped in a scanned repo is never trusted | Planted cache entries and run logs are never served or read as complete (`internal/state/trust_test.go`) | `make check` |
 | Layer table holds | `layers` block in §3: every module package has a row and imports only lower layers its row lists (`layers.go`) | `make budget`, CI `budget` |
 | Calibration is reproducible and labels hold | Golden hashes per seed; every task keeps its twin marker, sink line and label; templates refuse aliasing renames (`calibrate/generate_test.go`, `templates_test.go`) | `make check` |
+| A recorded calibration gets the same tier | Replay fixture `calibrate/testdata/replay/seed1_tier_m.json` pins scores and tier; tier thresholds compared exactly (`run_test.go`, `tier_test.go`, `score_test.go`); calibration calls go through `egress.log` with redaction (`egress_test.go`) | `make check` |
 
 Function length has no automated check; the auditor reviews it.
 
