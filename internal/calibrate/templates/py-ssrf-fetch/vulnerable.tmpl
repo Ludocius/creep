@@ -1,0 +1,16 @@
+from urllib.parse import urlsplit
+
+import requests
+from flask import Flask, abort, request
+
+app = Flask(__name__)
+ALLOWED_SCHEMES = {"http", "https"}
+
+
+@app.route("/@@route@@")
+def @@func@@():
+    raw = request.args.get("@@field@@", "")
+    parts = urlsplit(raw)
+    if parts.scheme not in ALLOWED_SCHEMES:
+        abort(400)
+    return requests.get(raw, timeout=5).text

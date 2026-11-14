@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "js-command-exec",
+  "class": "command_injection",
+  "language": "javascript",
+  "pad_after": 3,
+  "slots": {
+    "route": ["dump", "archive", "backup", "bundle", "pack", "snapshot"],
+    "field": ["dir", "folder", "source", "project", "workspace", "subdir"]
+  },
+  "vulnerable": {"sink_line": 6, "marker": "exec(\""},
+  "safe": {"sink_line": 6, "marker": "execFile(\""}
+}

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "id": "py-command-shell",
+  "class": "command_injection",
+  "language": "python",
+  "pad_after": 5,
+  "slots": {
+    "route": ["ping", "probe", "reach", "diagnose", "health", "trace"],
+    "func": ["check_host", "probe_target", "reach_device", "test_link", "ping_node", "measure_latency"],
+    "field": ["host", "target", "address", "device", "node_name", "dest"]
+  },
+  "vulnerable": {"sink_line": 11, "marker": "shell=True"},
+  "safe": {"sink_line": 11, "marker": "shell=False"}
+}

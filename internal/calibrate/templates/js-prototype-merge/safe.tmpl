@@ -1,0 +1,22 @@
+const express = require("express");
+const router = express.Router();
+const @@store@@ = {};
+
+function @@func@@(target, source) {
+  for (const key of Object.keys(source)) {
+    if (key === "__proto__" || key === "constructor" || key === "prototype") continue;
+    if (typeof source[key] === "object" && source[key] !== null) {
+      target[key] = @@func@@(target[key] || {}, source[key]);
+    } else {
+      target[key] = source[key];
+    }
+  }
+  return target;
+}
+
+router.post("/@@route@@", (req, res) => {
+  @@func@@(@@store@@, req.body);
+  res.json(@@store@@);
+});
+
+module.exports = router;

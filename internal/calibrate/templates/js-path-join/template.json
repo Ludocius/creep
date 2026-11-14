@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "js-path-join",
+  "class": "path_traversal",
+  "language": "javascript",
+  "pad_after": 4,
+  "slots": {
+    "route": ["files", "attachments", "downloads", "media", "uploads", "documents"],
+    "folder": ["uploadDir", "filesRoot", "storageDir", "mediaRoot", "assetDir", "exportDir"]
+  },
+  "vulnerable": {"sink_line": 8, "marker": "res.sendFile(path.join("},
+  "safe": {"sink_line": 8, "marker": "{ root: "}
+}

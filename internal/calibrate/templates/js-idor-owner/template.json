@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "js-idor-owner",
+  "class": "idor",
+  "language": "javascript",
+  "pad_after": 4,
+  "slots": {
+    "route": ["notes", "invoices", "orders", "reports", "tickets", "receipts"],
+    "model": ["Note", "Invoice", "Order", "Report", "Ticket", "Receipt"]
+  },
+  "vulnerable": {"sink_line": 7, "marker": "{ _id: req.params.id })"},
+  "safe": {"sink_line": 7, "marker": "ownerId: req.user.id"}
+}

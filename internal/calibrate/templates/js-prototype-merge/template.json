@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "id": "js-prototype-merge",
+  "class": "prototype_pollution",
+  "language": "javascript",
+  "pad_after": 3,
+  "slots": {
+    "route": ["settings", "preferences", "profile", "config", "options", "layout"],
+    "store": ["settingsStore", "userPrefs", "profileData", "appConfig", "savedOptions", "layoutState"],
+    "func": ["deepMerge", "mergeInto", "applyPatch", "assignDeep", "combine", "extendObject"]
+  },
+  "vulnerable": {"sink_line": 8, "marker": "for (const key of Object.keys(source)) {\n    if (typeof"},
+  "safe": {"sink_line": 9, "marker": "key === \"__proto__\""}
+}

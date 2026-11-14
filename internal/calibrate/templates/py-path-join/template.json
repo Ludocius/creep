@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "id": "py-path-join",
+  "class": "path_traversal",
+  "language": "python",
+  "pad_after": 6,
+  "slots": {
+    "route": ["files", "attachments", "downloads", "media", "uploads", "documents"],
+    "func": ["download", "get_attachment", "serve_file", "fetch_upload", "read_document", "open_asset"],
+    "folder": ["UPLOAD_DIR", "FILES_ROOT", "STORAGE_DIR", "MEDIA_ROOT", "ASSET_DIR", "EXPORT_DIR"]
+  },
+  "vulnerable": {"sink_line": 12, "marker": "send_file(os.path.join("},
+  "safe": {"sink_line": 12, "marker": "send_from_directory("}
+}

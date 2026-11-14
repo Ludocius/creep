@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "python": [
+    "PAGE_SIZE = 50",
+    "MAX_RESULTS = 200",
+    "LOG_PREFIX = \"svc\"",
+    "CACHE_SECONDS = 300",
+    "API_VERSION = \"2\""
+  ],
+  "javascript": [
+    "const PAGE_SIZE = 50;",
+    "const MAX_RESULTS = 200;",
+    "const LOG_PREFIX = \"svc\";",
+    "const CACHE_SECONDS = 300;",
+    "const API_VERSION = \"2\";"
+  ]
+}

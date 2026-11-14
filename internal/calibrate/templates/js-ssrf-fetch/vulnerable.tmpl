@@ -1,0 +1,20 @@
+const express = require("express");
+const allowedProtocols = new Set(["http:", "https:"]);
+const router = express.Router();
+
+router.get("/@@route@@", async (req, res) => {
+  let target;
+  try {
+    target = new URL(req.query.@@field@@);
+  } catch {
+    return res.sendStatus(400);
+  }
+  if (!allowedProtocols.has(target.protocol)) {
+    return res.sendStatus(400);
+  }
+  // Large previews are cut by the client.
+  const reply = await fetch(target);
+  res.send(await reply.text());
+});
+
+module.exports = router;

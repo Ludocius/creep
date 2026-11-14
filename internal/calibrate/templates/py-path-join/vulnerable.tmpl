@@ -1,0 +1,12 @@
+import os
+
+from flask import Flask, send_file, send_from_directory
+
+app = Flask(__name__)
+@@folder@@ = "/srv/app/data"
+
+
+@app.route("/@@route@@/<path:name>")
+def @@func@@(name):
+    # Callers pass the file name they saw in the listing.
+    return send_file(os.path.join(@@folder@@, name))

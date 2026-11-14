@@ -1,0 +1,22 @@
+import sqlite3
+
+from flask import Flask
+
+from .auth import admin_required
+
+app = Flask(__name__)
+
+
+@app.route("/@@route@@")
+@admin_required
+def @@reader@@():
+    conn = sqlite3.connect("app.db")
+    return {"rows": conn.execute("SELECT id FROM @@table@@").fetchall()}
+
+
+@app.route("/@@route@@/<int:row_id>", methods=["DELETE"])
+def @@remover@@(row_id):
+    conn = sqlite3.connect("app.db")
+    conn.execute("DELETE FROM @@table@@ WHERE id = ?", (row_id,))
+    conn.commit()
+    return "", 204

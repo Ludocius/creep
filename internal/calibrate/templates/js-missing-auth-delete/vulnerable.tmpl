@@ -1,0 +1,15 @@
+const express = require("express");
+const { requireAdmin } = require("./auth");
+const { @@model@@ } = require("./models");
+const router = express.Router();
+
+router.get("/@@route@@", requireAdmin, async (req, res) => {
+  res.json(await @@model@@.find());
+});
+
+router.delete("/@@route@@/:id", async (req, res) => {
+  await @@model@@.deleteOne({ _id: req.params.id });
+  res.sendStatus(204);
+});
+
+module.exports = router;

@@ -1,0 +1,19 @@
+import sqlite3
+
+from flask import Flask, abort, g
+
+from .auth import login_required
+
+app = Flask(__name__)
+
+
+@app.route("/@@route@@/<int:item_id>")
+@login_required
+def @@func@@(item_id):
+    conn = sqlite3.connect("app.db")
+    row = conn.execute(
+        "SELECT id, total FROM @@table@@ WHERE id = ? AND owner_id = ?", (item_id, g.user.id)
+    ).fetchone()
+    if row is None:
+        abort(404)
+    return {"id": row[0], "total": row[1], "viewer": g.user.id}

@@ -1,0 +1,12 @@
+import sqlite3
+
+from flask import Flask, request
+
+app = Flask(__name__)
+
+
+@app.route("/@@route@@")
+def @@func@@():
+    conn = sqlite3.connect("app.db")
+    sql = "SELECT id, title FROM @@table@@ WHERE title LIKE ?"
+    return {"rows": conn.execute(sql, ("%" + request.args.get("@@field@@", "") + "%",)).fetchall()}

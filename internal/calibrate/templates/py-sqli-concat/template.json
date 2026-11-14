@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "id": "py-sqli-concat",
+  "class": "sqli",
+  "language": "python",
+  "pad_after": 5,
+  "slots": {
+    "route": ["search", "lookup", "browse", "filter", "find", "query"],
+    "func": ["search_notes", "find_posts", "lookup_titles", "list_entries", "filter_records", "match_items"],
+    "table": ["notes", "posts", "entries", "articles", "records", "items"],
+    "field": ["term", "needle", "keyword", "phrase", "text_filter", "q"]
+  },
+  "vulnerable": {"sink_line": 12, "marker": "conn.execute(sql)"},
+  "safe": {"sink_line": 12, "marker": "conn.execute(sql, ("}
+}

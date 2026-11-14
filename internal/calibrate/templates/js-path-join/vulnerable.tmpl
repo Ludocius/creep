@@ -1,0 +1,11 @@
+const express = require("express");
+const path = require("path");
+const router = express.Router();
+const @@folder@@ = "/srv/app/data";
+
+router.get("/@@route@@/:name", (req, res) => {
+  // Callers pass the file name they saw in the listing.
+  res.sendFile(path.join(@@folder@@, req.params.name));
+});
+
+module.exports = router;
