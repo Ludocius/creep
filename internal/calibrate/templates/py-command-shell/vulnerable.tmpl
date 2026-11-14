@@ -1,0 +1,11 @@
+import subprocess
+
+from flask import Flask, request
+
+app = Flask(__name__)
+
+
+@app.route("/@@route@@")
+def @@func@@():
+    cmd = "nslookup " + request.args.get("@@field@@", "")
+    return subprocess.run(cmd, shell=True, capture_output=True).stdout

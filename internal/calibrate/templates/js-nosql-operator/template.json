@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "id": "js-nosql-operator",
+  "class": "nosql_injection",
+  "language": "javascript",
+  "pad_after": 3,
+  "slots": {
+    "route": ["login", "signin", "session", "verify", "check", "auth"],
+    "model": ["User", "Account", "Member", "Customer", "Profile", "Subscriber"],
+    "field": ["email", "username", "handle", "nickname", "alias", "loginName"]
+  },
+  "vulnerable": {"sink_line": 6, "marker": ": req.body."},
+  "safe": {"sink_line": 6, "marker": "String(req.body."}
+}

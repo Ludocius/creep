@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "id": "py-idor-owner",
+  "class": "idor",
+  "language": "python",
+  "pad_after": 7,
+  "slots": {
+    "route": ["notes", "invoices", "orders", "reports", "tickets", "receipts"],
+    "func": ["get_note", "show_invoice", "read_order", "view_report", "load_ticket", "fetch_receipt"],
+    "table": ["note", "invoice", "purchase", "report", "ticket", "receipt"]
+  },
+  "vulnerable": {"sink_line": 15, "marker": "WHERE id = ?\", (item_id,)"},
+  "safe": {"sink_line": 15, "marker": "AND owner_id = ?"}
+}

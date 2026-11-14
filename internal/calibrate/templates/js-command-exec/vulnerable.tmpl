@@ -1,0 +1,9 @@
+const express = require("express");
+const { exec } = require("child_process");
+const router = express.Router();
+
+router.get("/@@route@@", (req, res) => {
+  exec("tar -czf /tmp/out.tgz " + req.query.@@field@@, (err) => res.sendStatus(err ? 500 : 200));
+});
+
+module.exports = router;

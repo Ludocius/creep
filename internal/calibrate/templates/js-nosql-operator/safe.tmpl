@@ -1,0 +1,10 @@
+const express = require("express");
+const { @@model@@ } = require("./models");
+const router = express.Router();
+
+router.post("/@@route@@", async (req, res) => {
+  const doc = await @@model@@.findOne({ @@field@@: String(req.body.@@field@@) });
+  res.json({ found: Boolean(doc) });
+});
+
+module.exports = router;

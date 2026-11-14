@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "id": "py-ssrf-fetch",
+  "class": "ssrf",
+  "language": "python",
+  "pad_after": 7,
+  "slots": {
+    "route": ["preview", "unfurl", "proxy", "thumbnail", "embed", "fetch"],
+    "func": ["preview_link", "unfurl_url", "proxy_image", "fetch_thumbnail", "embed_page", "import_feed"],
+    "field": ["url", "link", "src", "target", "location", "feed"]
+  },
+  "vulnerable": {"sink_line": 16, "marker": "requests.get(raw, timeout=5)"},
+  "safe": {"sink_line": 16, "marker": "allow_redirects=False"}
+}

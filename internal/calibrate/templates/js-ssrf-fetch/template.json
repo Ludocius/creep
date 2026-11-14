@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "js-ssrf-fetch",
+  "class": "ssrf",
+  "language": "javascript",
+  "pad_after": 3,
+  "slots": {
+    "route": ["preview", "unfurl", "proxy", "thumbnail", "embed", "fetchPage"],
+    "field": ["url", "link", "src", "dest", "location", "feed"]
+  },
+  "vulnerable": {"sink_line": 16, "marker": "fetch(target)"},
+  "safe": {"sink_line": 16, "marker": "redirect: \"error\""}
+}

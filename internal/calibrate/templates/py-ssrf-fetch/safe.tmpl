@@ -1,0 +1,16 @@
+from urllib.parse import urlsplit
+
+import requests
+from flask import Flask, abort, request
+
+app = Flask(__name__)
+ALLOWED_HOSTS = {"media.example.invalid"}
+
+
+@app.route("/@@route@@")
+def @@func@@():
+    raw = request.args.get("@@field@@", "")
+    parts = urlsplit(raw)
+    if parts.scheme != "https" or parts.hostname not in ALLOWED_HOSTS:
+        abort(400)
+    return requests.get(raw, timeout=5, allow_redirects=False).text

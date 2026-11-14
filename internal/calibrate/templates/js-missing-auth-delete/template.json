@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "js-missing-auth-delete",
+  "class": "missing_auth",
+  "language": "javascript",
+  "pad_after": 4,
+  "slots": {
+    "route": ["users", "projects", "teams", "webhooks", "tokens", "groups"],
+    "model": ["Account", "Workspace", "Squad", "Hook", "Credential", "Circle"]
+  },
+  "vulnerable": {"sink_line": 10, "marker": "/:id\", async"},
+  "safe": {"sink_line": 10, "marker": "/:id\", requireAdmin, async"}
+}

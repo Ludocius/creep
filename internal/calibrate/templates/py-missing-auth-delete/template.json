@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "id": "py-missing-auth-delete",
+  "class": "missing_auth",
+  "language": "python",
+  "pad_after": 7,
+  "slots": {
+    "route": ["users", "projects", "teams", "webhooks", "tokens", "groups"],
+    "reader": ["list_users", "list_projects", "list_teams", "list_webhooks", "list_tokens", "list_groups"],
+    "remover": ["delete_user", "remove_project", "drop_team", "delete_webhook", "revoke_token", "remove_group"],
+    "table": ["accounts", "workspaces", "squads", "hooks", "credentials", "circles"]
+  },
+  "vulnerable": {"sink_line": 17, "marker": "methods=[\"DELETE\"])\ndef "},
+  "safe": {"sink_line": 17, "marker": "methods=[\"DELETE\"])\n@admin_required\ndef "}
+}

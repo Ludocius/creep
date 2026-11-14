@@ -1,0 +1,32 @@
+// Package calibrate measures the user's model per vulnerability class.
+//
+// It exists because public benchmarks are in every model's training data, so
+// a score on them says little about the model in front of us. Calibration
+// tasks are generated instead: Generate turns a seed into TaskCount tasks by
+// mutating vulnerability templates.
+//
+//   - Templates are data, not code (docs/architecture.md §5, §8): each one is
+//     a directory under templates/ holding template.json (class, language,
+//     identifier pools, sink lines and markers) and a vulnerable.tmpl and
+//     safe.tmpl twin. Adding a template adds a directory, not Go code.
+//   - A mutation only renames identifiers, drawn from the template's own
+//     pools, and inserts neutral constant lines before the sink. Loading
+//     refuses a pool value that is not a plain identifier, is a keyword,
+//     repeats in another pool or already appears in the template, so a
+//     rename can never alias a name the code uses. The ground truth (class,
+//     vulnerable or safe, sink line) is therefore fixed by the template, and
+//     the twin markers in template.json let tests check every task for it.
+//   - The generator is pure: seed in, tasks out, no I/O beyond the embedded
+//     files. It reads randomness only from a PCG source seeded with the seed
+//     and draws through intN, so the tasks depend on the PCG algorithm and
+//     this package alone, not on math/rand helpers that may change between
+//     Go releases. Golden hashes in the tests pin the output; changing a
+//     template changes them, which is intended: it changes calibration
+//     results, and the PR needs the affects-results label.
+//   - Half the tasks are vulnerable and half are their safe twins, spread
+//     round-robin over every template, then shuffled so position says
+//     nothing about the label.
+//
+// Templates hold no real secret or hostname; hosts use the reserved
+// .invalid top-level domain.
+package calibrate
