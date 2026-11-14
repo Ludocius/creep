@@ -157,6 +157,7 @@ Automated checks that guard an architectural property. A new property needs a ch
 | No known-vulnerable code or leaked secret | govulncheck, gitleaks over full history, CodeQL | CI |
 | Vulnerable fixtures stay data and stay accurate | `internal/tools/testapps`: every `testdata/apps` app has a safe twin, holds only source files (no manifests, lockfiles or scripts), stays under 200 lines, and its `expected.json` matches the real lines; no Makefile, workflow, script or program-starting Go code names the apps | `make check` |
 | Run-state JSONL stays additive (contract `v`) | Committed v1 fixtures decode with unknown fields disallowed (`TestV1FixtureDecodes`, `internal/state/testdata/v1`) | `make check` |
+| State shipped in a scanned repo is never trusted | Planted cache entries and run logs are never served or read as complete (`internal/state/trust_test.go`) | `make check` |
 | Layer table holds | `layers` block in §3: every module package has a row and imports only lower layers its row lists (`layers.go`) | `make budget`, CI `budget` |
 
 Function length has no automated check; the auditor reviews it.
