@@ -21,8 +21,10 @@ var foreignExts = map[string]bool{
 }
 
 // foreignAllowed lists module-relative files that may be non-Go sources, each
-// with its reason. Empty today.
-var foreignAllowed = map[string]string{}
+// with its reason.
+var foreignAllowed = map[string]string{
+	"internal/static/grammars/glue.c": "compiled to WebAssembly by grammars/build.sh and run in wazero; its directory has no Go files, so the go command never builds it (ADR 0007)",
+}
 
 func foreignProblems(cfg config) ([]string, error) {
 	names, err := walkForeignFiles(os.DirFS(cfg.root))

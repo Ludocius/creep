@@ -44,6 +44,16 @@ func decodePackages(data []byte) (map[string]listedPackage, error) {
 	}
 }
 
+// netReachAllowed maps a third-party import that links package net to the one
+// module-relative package allowed to import it. wazero links net only for
+// WASI sockets, which a guest gets only if the host passes a listener through
+// wazero/experimental/sock; internal/static never does, and importing that
+// package is not listed here, so it would fail this check (ADR 0007).
+var netReachAllowed = map[string]string{
+	"github.com/tetratelabs/wazero":                                "internal/static",
+	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1": "internal/static",
+}
+
 // checkNetReach reports main-module packages outside the gateway whose code or
 // tests pull in package net through any chain of imports, such as expvar or
 // a third-party client. Main-module packages are checked on their own, so the
@@ -57,7 +67,7 @@ func checkNetReach(modPath string, pkgs map[string]listedPackage) []string {
 		}
 		roots := append(append(append([]string{}, p.Imports...), p.TestImports...), p.XTestImports...)
 		for _, root := range roots {
-			if isMain(pkgs, root) {
+			if isMain(pkgs, root) || netReachExempt(modPath, p.ImportPath, root) {
 				continue
 			}
 			if reachesNet(pkgs, root, map[string]bool{}) {
@@ -66,6 +76,11 @@ func checkNetReach(modPath string, pkgs map[string]listedPackage) []string {
 		}
 	}
 	return problems
+}
+
+func netReachExempt(modPath, importer, imp string) bool {
+	allowed, ok := netReachAllowed[imp]
+	return ok && importer == path.Join(modPath, allowed)
 }
 
 func reachesNet(pkgs map[string]listedPackage, imp string, seen map[string]bool) bool {
