@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "app": "fastapi",
+  "language": "python",
+  "framework": "fastapi",
+  "vulnerable": [
+    {"class": "sqli", "file": "app.py", "line": 44, "route": "/items", "sink": "ORDER BY {sort}"},
+    {"class": "missing_auth", "file": "app.py", "line": 57, "route": "/items/{item_id}", "sink": "DELETE FROM items"},
+    {"class": "ssrf", "file": "app.py", "line": 64, "route": "/webhooks/test", "sink": "httpx.post(hook.url"}
+  ],
+  "safe": []
+}

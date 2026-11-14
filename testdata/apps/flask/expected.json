@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "app": "flask",
+  "language": "python",
+  "framework": "flask",
+  "vulnerable": [
+    {"class": "sqli", "file": "app.py", "line": 44, "route": "/notes/search", "sink": "db().execute(query)"},
+    {"class": "idor", "file": "app.py", "line": 51, "route": "/notes/<int:note_id>", "sink": "WHERE id = ?\", (note_id,)"},
+    {"class": "ssrf", "file": "app.py", "line": 61, "route": "/notes/preview", "sink": "requests.get(url"},
+    {"class": "path_traversal", "file": "app.py", "line": 68, "route": "/attachments/<path:name>", "sink": "send_file(os.path.join(UPLOAD_DIR, name))"}
+  ],
+  "safe": []
+}
