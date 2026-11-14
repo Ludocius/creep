@@ -10,6 +10,7 @@ import (
 	"math/rand/v2"
 	"strings"
 
+	"github.com/sneakercreepers/creep/internal/gateway"
 	"github.com/sneakercreepers/creep/internal/models"
 	"github.com/sneakercreepers/creep/internal/redact"
 )
@@ -177,7 +178,7 @@ func runContextProbes(ctx context.Context, opts Options, src rand.Source) (int, 
 		}
 		req.Schema, req.Grammar = contextSchema(), contextGrammar()
 		a, err := models.Complete[contextAnswer](ctx, opts.Model, req)
-		if errors.Is(err, models.ErrInvalidOutput) {
+		if probeTooLarge(err) {
 			return effective, nil
 		}
 		if err != nil {
@@ -189,6 +190,23 @@ func runContextProbes(ctx context.Context, opts Options, src rand.Source) (int, 
 		effective = size
 	}
 	return effective, nil
+}
+
+// probeTooLarge reports whether a context probe failed because of its size,
+// which measures the model's context instead of ending the run: invalid
+// output, a 400 or 413 (how endpoints refuse an input over their context
+// length), or a budget refusal. Consent, allowlist and egress failures are
+// not about the size and still end the run.
+func probeTooLarge(err error) bool {
+	if errors.Is(err, models.ErrInvalidOutput) || errors.Is(err, gateway.ErrBudgetExhausted) {
+		return true
+	}
+	var status *models.StatusError
+	if !errors.As(err, &status) {
+		return false
+	}
+	// Literals: only the gateway may import net/http (invariant 1).
+	return status.Status == 400 || status.Status == 413
 }
 
 // newRequest redacts the whole prompt with File, as the gateway does with a

@@ -51,7 +51,8 @@
 //   - Probes, seeded on their own PCG stream: tool calling (pick the right
 //     tool, copy the argument exactly) and effective context (find one
 //     assignment in 8, 32, then 128 KiB of similar ones, stopping at the
-//     first miss).
+//     first miss). A probe refused for its size (HTTP 400 or 413, or the
+//     token budget) is a miss, not a failed run.
 //   - The Result records the seed, a hash of the task set and
 //     PromptVersion, so a cached result (#91) is tied to what it measured.
 package calibrate

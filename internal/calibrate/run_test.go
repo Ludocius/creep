@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sneakercreepers/creep/internal/gateway"
 	"github.com/sneakercreepers/creep/internal/models"
 )
 
@@ -168,11 +169,11 @@ func opposite(o oracle, user string) string {
 func TestRunFailures(t *testing.T) {
 	o := newOracle(t, 1)
 	statusAt := func(call int, status int) *replayer {
-		return &replayer{next: func(n int, user string) (recordedReply, bool) {
+		return &replayer{next: func(n int, c gateway.Call) (recordedReply, bool) {
 			if n == call {
 				return recordedReply{Status: status, Body: openAIBody("")}, true
 			}
-			return recordedReply{Status: 200, Body: openAIBody(o.answer(user))}, true
+			return recordedReply{Status: 200, Body: openAIBody(o.answer(userTurn(c.Payload)))}, true
 		}}
 	}
 	canceled, cancel := context.WithCancel(context.Background())
@@ -207,7 +208,78 @@ func TestRunFailures(t *testing.T) {
 	}
 }
 
-func noReply(int, string) (recordedReply, bool) { return recordedReply{}, false }
+func noReply(int, gateway.Call) (recordedReply, bool) { return recordedReply{}, false }
+
+// Replies are matched to their request hash: other tasks (another seed)
+// with the same call count do not replay against the recording.
+func TestReplayRefusesOtherRequests(t *testing.T) {
+	rep, _ := fromFixture(t, "seed1_tier_m")
+	if _, err := Run(context.Background(), testOptions(t, 2, rep.send)); err == nil {
+		t.Fatal("seed 2 replayed against the seed 1 recording")
+	}
+	if rep.replies != 0 {
+		t.Errorf("served %d replies to requests it was not recorded for", rep.replies)
+	}
+}
+
+// failContextCall answers like o, except that context-probe call n (0 for
+// 8 KiB, 1 for 32 KiB, 2 for 128 KiB) gets status, or err when set.
+func failContextCall(o oracle, n, status int, err error) models.SendFunc {
+	rep := answering(o.answer)
+	seen := 0
+	return func(ctx context.Context, call gateway.Call) (*gateway.Reply, error) {
+		if call.Purpose == purposeContext {
+			seen++
+			if seen-1 == n && err != nil {
+				return nil, err
+			}
+			if seen-1 == n {
+				return &gateway.Reply{ID: "refused", Status: status, Body: openAIBody("")}, nil
+			}
+		}
+		return rep.send(ctx, call)
+	}
+}
+
+// A context probe refused for its size (400, 413, budget) measures the
+// context: the smaller sizes' result stands and the run gets a tier. A
+// refusal that is not about size still ends the run.
+func TestContextProbeRefusals(t *testing.T) {
+	o := newOracle(t, 1)
+	tests := []struct {
+		name      string
+		send      models.SendFunc
+		effective int
+		tier      Tier
+		want      error
+	}{
+		{"400 at 128 KiB", failContextCall(o, 2, 400, nil), 32 << 10, TierM, nil},
+		{"413 at 32 KiB", failContextCall(o, 1, 413, nil), 8 << 10, TierS, nil},
+		{"400 at 8 KiB", failContextCall(o, 0, 400, nil), 0, TierS, nil},
+		{"budget at 128 KiB", failContextCall(o, 2, 0, &gateway.BudgetError{}), 32 << 10, TierM, nil},
+		{"503 at 128 KiB", failContextCall(o, 2, 503, nil), 0, "", models.ErrStatus},
+		{"not allowed at 128 KiB", failContextCall(o, 2, 0, gateway.ErrNotAllowed), 0, "", gateway.ErrNotAllowed},
+		{"no consent at 128 KiB", failContextCall(o, 2, 0, gateway.ErrNoConsent), 0, "", gateway.ErrNoConsent},
+		{"egress write at 128 KiB", failContextCall(o, 2, 0, gateway.ErrUnsafeLogPath), 0, "", gateway.ErrUnsafeLogPath},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, err := Run(context.Background(), testOptions(t, 1, tt.send))
+			if tt.want != nil {
+				if !errors.Is(err, tt.want) || !reflect.DeepEqual(r, Result{}) {
+					t.Fatalf("err = %v, result %+v; want %v and no result", err, r, tt.want)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if r.Context.EffectiveBytes != tt.effective || r.Tier != tt.tier {
+				t.Errorf("effective %d tier %s, want %d %s", r.Context.EffectiveBytes, r.Tier, tt.effective, tt.tier)
+			}
+		})
+	}
+}
 
 func TestRunRefusesNoTasks(t *testing.T) {
 	_, err := run(context.Background(), testOptions(t, 1, contextSend), nil)

@@ -2,6 +2,8 @@ package calibrate
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,15 +23,18 @@ import (
 // array replayed in call order. A fixture holds exactly the replies a run
 // consumes, so an extra or missing call fails the test.
 type recordedReply struct {
-	Status int             `json:"status"`
-	Body   json.RawMessage `json:"body"`
+	// Request is the sha256 of the payload the reply answers, so a replay
+	// fails on a changed prompt, not only on a changed call count.
+	Request string          `json:"request_sha256,omitempty"`
+	Status  int             `json:"status"`
+	Body    json.RawMessage `json:"body"`
 }
 
 // replayer is a SendFunc that answers each call, records it, and stops
 // with an error when it has no answer left.
 type replayer struct {
 	mu      sync.Mutex
-	next    func(n int, user string) (recordedReply, bool)
+	next    func(n int, call gateway.Call) (recordedReply, bool)
 	calls   []gateway.Call
 	replies int
 }
@@ -39,7 +44,7 @@ func (r *replayer) send(_ context.Context, call gateway.Call) (*gateway.Reply, e
 	defer r.mu.Unlock()
 	n := len(r.calls)
 	r.calls = append(r.calls, call)
-	rec, ok := r.next(n, userTurn(call.Payload))
+	rec, ok := r.next(n, call)
 	if !ok {
 		return nil, errors.New("replay: no recorded reply left")
 	}
@@ -47,7 +52,8 @@ func (r *replayer) send(_ context.Context, call gateway.Call) (*gateway.Reply, e
 	return &gateway.Reply{ID: fmt.Sprintf("replay-%d", n), Status: rec.Status, Body: rec.Body}, nil
 }
 
-// fromFixture replays testdata/replay/<name>.json in order.
+// fromFixture replays testdata/replay/<name>.json in order, and refuses a
+// call whose payload hash is not the one the reply was recorded for.
 func fromFixture(t *testing.T, name string) (*replayer, int) {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join("testdata", "replay", name+".json"))
@@ -58,18 +64,23 @@ func fromFixture(t *testing.T, name string) (*replayer, int) {
 	if err := json.Unmarshal(raw, &recs); err != nil {
 		t.Fatalf("fixture %s: %v", name, err)
 	}
-	return &replayer{next: func(n int, _ string) (recordedReply, bool) {
-		if n >= len(recs) {
+	return &replayer{next: func(n int, call gateway.Call) (recordedReply, bool) {
+		if n >= len(recs) || recs[n].Request != payloadHash(call.Payload) {
 			return recordedReply{}, false
 		}
 		return recs[n], true
 	}}, len(recs)
 }
 
+func payloadHash(payload []byte) string {
+	sum := sha256.Sum256(payload)
+	return hex.EncodeToString(sum[:])
+}
+
 // answering replies 200 with the content answer returns for each user turn.
 func answering(answer func(user string) string) *replayer {
-	return &replayer{next: func(_ int, user string) (recordedReply, bool) {
-		return recordedReply{Status: 200, Body: openAIBody(answer(user))}, true
+	return &replayer{next: func(_ int, call gateway.Call) (recordedReply, bool) {
+		return recordedReply{Status: 200, Body: openAIBody(answer(userTurn(call.Payload)))}, true
 	}}
 }
 
