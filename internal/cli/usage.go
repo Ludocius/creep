@@ -32,6 +32,8 @@ func globalFlagsHelp() string {
 	return fmt.Sprintf("Global flags (before or after the command; \"--\" ends flags):\n"+
 		"  --config <path>     config file used instead of the user and project files\n"+
 		"  --format <format>   output format: %s (default %q)\n"+
-		"  --log-level <level> log level: %s (default %q)\n",
+		"  --log-level <level> log level: %s (default %q)\n"+
+		"  --record            call every model and record the responses for replay\n"+
+		"  --replay            serve recorded responses only; never use the network\n",
 		strings.Join(formats, ", "), d.format, strings.Join(logLevels, ", "), d.logLevel)
 }

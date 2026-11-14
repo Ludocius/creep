@@ -149,6 +149,9 @@ func TestStubsFailClosed(t *testing.T) {
 		if c.name == "version" || c.name == "config" {
 			continue
 		}
+		if c.name == "resume" { // checks its run first; TestResumeFailsClosed covers it
+			continue
+		}
 		t.Run(c.name, func(t *testing.T) {
 			code, _, stderr := run(c.name)
 			if code != exitcode.ConfigError {
