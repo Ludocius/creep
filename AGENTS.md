@@ -47,7 +47,7 @@ go test ./... -failfast           # tests replay recorded model responses; no ke
   - Documentation-only changes run only the auditor (saves tokens): the PR touches only `*.md` files or `docs/`, and not code, workflows, settings, Makefile or the policy files (AGENTS.md, CLAUDE.md, CONTRIBUTING.md, PR template).
   - The auditor triages every open finding (audited severity, priority, size, milestone) and adds each follow-up issue to the project board (Roadmap, [sneakercreepers project 1](https://github.com/orgs/sneakercreepers/projects/1)) with those fields.
   - Changing or removing this loop needs an ADR in `docs/adr/` and maintainer approval; do not weaken it as a side effect of another change.
-- Merge (squash) only when GitHub checks are green, the tester passes and the auditor allows it. One feature at a time.
+- Merge (squash) only when GitHub checks are green, the tester passes and the auditor allows it. Up to three features in flight at once, chosen from different packages or layers so they do not edit the same files ([ADR 0006](docs/adr/0006-three-features-in-flight.md)); each runs the full loop independently, and each branch is rebased on `main` and re-checked (CI green) before its squash merge.
 - Branch `feat/<issue>-<slug>`; PR body `Closes #N`; labels from the issue.
 - ADR only when a change adds a dependency or alters a public contract.
 - After each merge, update **Current state** below (max 10 lines).
