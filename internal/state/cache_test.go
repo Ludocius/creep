@@ -3,6 +3,7 @@ package state
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"os"
@@ -33,7 +34,7 @@ func countingCall(resp string, calls *int) func() ([]byte, error) {
 // model call: the basis for byte-identical reports.
 func TestReplayIsByteIdenticalWithoutCalls(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), ".creep")
-	recorder, err := Open(dir)
+	recorder, err := Open(dir, testSecret)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +47,7 @@ func TestReplayIsByteIdenticalWithoutCalls(t *testing.T) {
 	}
 	_ = recorder.Close()
 
-	replayer, err := Open(dir)
+	replayer, err := Open(dir, testSecret)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,6 +158,8 @@ func TestCorruptCacheEntryFailsClosed(t *testing.T) {
 		{"other key", `{"v":1,"key":` + keyJSON(other) + `,"response":"cg=="}` + "\n", ErrCorrupt},
 		{"null response", `{"v":1,"key":` + keyJSON(k) + `,"response":null}` + "\n", ErrCorrupt},
 		{"newer version", `{"v":2,"key":` + keyJSON(k) + `,"response":"cg=="}` + "\n", ErrUnsupportedVersion},
+		{"response over cap", `{"v":1,"key":` + keyJSON(k) + `,"response":"` +
+			base64.StdEncoding.EncodeToString(make([]byte, MaxResponseBytes+1)) + `"}` + "\n", ErrCorrupt},
 		{"oversized file", strings.Repeat(" ", maxEntryBytes+1), ErrCorrupt},
 	}
 	for _, tt := range tests {
@@ -165,7 +168,7 @@ func TestCorruptCacheEntryFailsClosed(t *testing.T) {
 			if err := s.Record(k, []byte("r")); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(cachePath(s, k), []byte(tt.entry), 0o600); err != nil {
+			if err := os.WriteFile(cachePath(s, k), signLines(tt.entry, cacheDomain), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := s.Respond(ModeReplay, k, nil); !errors.Is(err, tt.want) {

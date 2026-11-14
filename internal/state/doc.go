@@ -15,6 +15,16 @@
 //     so new fields are additive; a newer "v" fails closed. A committed v1
 //     fixture (testdata/v1) must keep decoding with no unknown fields, so a
 //     removed or retyped field fails the tests.
+//   - State is never trusted because of where it sits: .creep may arrive
+//     inside the scanned repository. Every line ends with an HMAC-SHA256
+//     ("mac") keyed by a per-user secret kept outside every repository
+//     (UserSecret, in os.UserConfigDir). A run line's MAC also covers its
+//     run ID. A line without a valid MAC is ErrUnauthenticated: live mode
+//     treats such a cache entry as a miss and calls the model; replay, Load
+//     and Resume fail with ErrCorrupt. A planted response or a planted
+//     "complete" run is therefore never served or believed.
+//   - Run IDs must match the exact form NewRun writes, so no alias (Windows
+//     drops a trailing dot or space) reaches a run.
 //   - Files are 0600 and directories 0700. Cache entries are written to a
 //     temporary file, synced and renamed, so a reader never sees half of one.
 //     Events are appended with one write and an fsync per line.

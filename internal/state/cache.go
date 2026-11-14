@@ -40,6 +40,7 @@ type entry struct {
 	V        int    `json:"v"`
 	Key      Key    `json:"key"`
 	Response []byte `json:"response"`
+	MAC      string `json:"mac,omitempty"` // HMAC-SHA256 of the line; always the last field
 }
 
 var (
@@ -75,19 +76,23 @@ func (s *Store) Lookup(k Key) ([]byte, bool, error) {
 	if err != nil {
 		return nil, false, fmt.Errorf("cache: %w", err)
 	}
-	resp, err := decodeEntry(data, k)
+	resp, err := decodeEntry(data, k, s.secret)
 	if err != nil {
 		return nil, false, fmt.Errorf("cache %s: %w", name, err)
 	}
 	return resp, true, nil
 }
 
-func decodeEntry(data []byte, k Key) ([]byte, error) {
+func decodeEntry(data []byte, k Key, secret []byte) ([]byte, error) {
 	if len(data) == 0 || data[len(data)-1] != '\n' || bytes.Count(data, []byte("\n")) != 1 {
 		return nil, fmt.Errorf("not one complete line: %w", ErrCorrupt)
 	}
+	body, err := verify(secret, cacheDomain, data[:len(data)-1])
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrCorrupt, err) // ErrUnauthenticated: live treats it as a miss
+	}
 	var e entry
-	if err := json.Unmarshal(data, &e); err != nil {
+	if err := json.Unmarshal(body, &e); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrCorrupt, err)
 	}
 	if e.V > Version {
@@ -114,14 +119,14 @@ func (s *Store) Record(k Key, resp []byte) error {
 	if resp == nil {
 		resp = []byte{}
 	}
-	line, err := json.Marshal(entry{V: Version, Key: k, Response: resp})
+	body, err := json.Marshal(entry{V: Version, Key: k, Response: resp})
 	if err != nil {
 		return fmt.Errorf("cache: %w", err)
 	}
 	if err := s.ensureDir(cacheDir); err != nil {
 		return err
 	}
-	return s.writeAtomic(k.fileName(), append(line, '\n'))
+	return s.writeAtomic(k.fileName(), append(sign(s.secret, cacheDomain, body), '\n'))
 }
 
 // Respond returns the response for k according to mode: replay serves only
@@ -133,6 +138,9 @@ func (s *Store) Respond(mode Mode, k Key, call func() ([]byte, error)) ([]byte, 
 	}
 	if mode != ModeRecord {
 		resp, ok, err := s.Lookup(k)
+		if mode == ModeLive && errors.Is(err, ErrUnauthenticated) {
+			ok, err = false, nil // not written by this user (e.g. shipped in the repo): never served
+		}
 		if err != nil || ok {
 			return resp, err
 		}

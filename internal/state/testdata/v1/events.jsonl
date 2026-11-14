@@ -1,3 +1,3 @@
-{"v":1,"seq":1,"kind":"start","mode":"replay"}
-{"v":1,"seq":2,"kind":"step","step":"route:42"}
-{"v":1,"seq":3,"kind":"end","outcome":"incomplete","reason":"redact_run_full"}
+{"v":1,"seq":1,"kind":"start","mode":"replay","mac":"03595409913b0684ec1f4773be29f701b40a81918f1b845507130a87d34c7f31"}
+{"v":1,"seq":2,"kind":"step","step":"route:42","mac":"a15a80d75261d7070b6402ee1e3432207a0e52e17b81a6302d1222598453e1cf"}
+{"v":1,"seq":3,"kind":"end","outcome":"incomplete","reason":"redact_run_full","mac":"d37478854d3e920670075955e73c11cac46e49142eedfadba37706b260732ffc"}

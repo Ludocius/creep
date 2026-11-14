@@ -1,6 +1,7 @@
 package state
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -35,12 +36,18 @@ var (
 // Store is a state directory. Every file access goes through an os.Root, so
 // no name can escape it.
 type Store struct {
-	dir  string
-	root *os.Root
+	dir    string
+	root   *os.Root
+	secret []byte
 }
 
 // Open opens the state directory dir, creating it with mode 0700 if missing.
-func Open(dir string) (*Store, error) {
+// secret (normally UserSecret) authenticates every line written and read,
+// so state that did not come from this user's creep is never trusted.
+func Open(dir string, secret []byte) (*Store, error) {
+	if len(secret) != SecretBytes {
+		return nil, fmt.Errorf("state dir: secret must be %d bytes", SecretBytes)
+	}
 	abs, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, fmt.Errorf("state dir: %w", err)
@@ -61,7 +68,7 @@ func Open(dir string) (*Store, error) {
 		_ = root.Close()
 		return nil, fmt.Errorf("state dir %q changed while opening: %w", abs, ErrUnsafePath)
 	}
-	return &Store{dir: abs, root: root}, nil
+	return &Store{dir: abs, root: root, secret: bytes.Clone(secret)}, nil
 }
 
 // Close releases the directory handle.

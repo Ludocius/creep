@@ -46,7 +46,7 @@ func TestV1FixtureMeaning(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	sum, err := decodeEvents(f)
+	sum, err := decodeEvents(f, testSecret, fixtureRunID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,8 +59,7 @@ func TestV1FixtureMeaning(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	data = bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n")) // tolerate a CRLF checkout
-	resp, err := decodeEntry(data, testKey("x"))
+	resp, err := decodeEntry(data, testKey("x"), testSecret)
 	if err != nil || string(resp) != "{\"finding\":1}\n" {
 		t.Fatalf("v1 cache entry = %q, %v", resp, err)
 	}
@@ -68,3 +67,5 @@ func TestV1FixtureMeaning(t *testing.T) {
 		t.Fatalf("cache file name %q changed shape", name)
 	}
 }
+
+const fixtureRunID = "20261113T120000Z-0123abcd"

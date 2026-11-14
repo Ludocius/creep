@@ -21,14 +21,22 @@ var (
 // Run is an open, append-only run log. Its methods are safe for concurrent
 // use.
 type Run struct {
-	id  string
-	dir string
+	id     string
+	dir    string
+	secret []byte
 
 	mu     sync.Mutex
-	f      *os.File
+	f      logFile
 	sum    Summary
 	done   map[string]bool
 	broken error // a failed write may have left a partial line; append no more
+}
+
+// logFile is the part of *os.File a run log uses; tests inject failures.
+type logFile interface {
+	Write([]byte) (int, error)
+	Sync() error
+	Close() error
 }
 
 // NewRun creates runs/<id>/events.jsonl with a fresh ID and writes its start
@@ -64,7 +72,7 @@ func (s *Store) Load(id string) (Summary, error) {
 		return Summary{}, err
 	}
 	defer f.Close()
-	return readSummary(id, f)
+	return s.readSummary(id, f)
 }
 
 // Resume reopens an interrupted run for appending. A run that already ended
@@ -74,7 +82,7 @@ func (s *Store) Resume(id string) (*Run, error) {
 	if err != nil {
 		return nil, err
 	}
-	sum, err := readSummary(id, f)
+	sum, err := s.readSummary(id, f)
 	if err == nil && sum.Ended {
 		err = fmt.Errorf("resume %s: %w", id, ErrRunEnded)
 	}
@@ -86,7 +94,7 @@ func (s *Store) Resume(id string) (*Run, error) {
 }
 
 func (s *Store) openEvents(id string, appendMode bool) (*os.File, error) {
-	if !validID(id) {
+	if !validRunID(id) {
 		return nil, fmt.Errorf("run %q: %w", id, ErrInvalidID)
 	}
 	if _, err := checkDir(runsDir, s.root.Lstat); err != nil {
@@ -99,8 +107,8 @@ func (s *Store) openEvents(id string, appendMode bool) (*os.File, error) {
 	return f, nil
 }
 
-func readSummary(id string, f *os.File) (Summary, error) {
-	sum, err := decodeEvents(f)
+func (s *Store) readSummary(id string, f *os.File) (Summary, error) {
+	sum, err := decodeEvents(f, s.secret, id)
 	if err != nil {
 		return Summary{}, fmt.Errorf("run %s: %w", id, err)
 	}
@@ -113,7 +121,7 @@ func (s *Store) newRun(id string, f *os.File, sum Summary) *Run {
 	for _, step := range sum.Steps {
 		done[step] = true
 	}
-	return &Run{id: id, dir: filepath.Join(s.dir, runsDir, id), f: f, sum: sum, done: done}
+	return &Run{id: id, dir: filepath.Join(s.dir, runsDir, id), secret: s.secret, f: f, sum: sum, done: done}
 }
 
 // ID returns the run ID, as accepted by Store.Resume.
@@ -200,14 +208,16 @@ func (r *Run) append(ev Event) error {
 	if ev.Kind != KindStart {
 		ev.Seq++
 	}
-	line, err := json.Marshal(ev)
+	body, err := json.Marshal(ev)
 	if err != nil {
 		return fmt.Errorf("run %s: %w", r.id, err)
 	}
-	if _, err := r.f.Write(append(line, '\n')); err != nil {
-		return fmt.Errorf("run %s: %w", r.id, err)
+	_, err = r.f.Write(append(sign(r.secret, runDomain(r.id), body), '\n'))
+	if err == nil {
+		err = r.f.Sync()
 	}
-	if err := r.f.Sync(); err != nil {
+	if err != nil {
+		r.broken = err // a partial line may be on disk; another append would follow it
 		return fmt.Errorf("run %s: %w", r.id, err)
 	}
 	return nil

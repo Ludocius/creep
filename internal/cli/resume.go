@@ -36,7 +36,11 @@ func loadResumable(id string) (state.Summary, error) {
 	if _, err := os.Lstat(stateDir); err != nil {
 		return state.Summary{}, fmt.Errorf("no run state in this directory: %w", err)
 	}
-	store, err := state.Open(stateDir)
+	secret, err := state.UserSecret()
+	if err != nil {
+		return state.Summary{}, err
+	}
+	store, err := state.Open(stateDir, secret)
 	if err != nil {
 		return state.Summary{}, err
 	}

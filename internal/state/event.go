@@ -59,6 +59,7 @@ type Event struct {
 	Step    string  `json:"step,omitempty"`    // step only: an ID, never repository text
 	Outcome Outcome `json:"outcome,omitempty"` // end only
 	Reason  string  `json:"reason,omitempty"`  // end only: an ID such as "redact_run_full"
+	MAC     string  `json:"mac,omitempty"`     // HMAC-SHA256 of the line; always the last field
 }
 
 // idPattern is the alphabet of Step, Reason and run IDs: enough for
@@ -66,6 +67,13 @@ type Event struct {
 var idPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
 
 func validID(s string) bool { return idPattern.MatchString(s) }
+
+// runIDPattern is the one spelling NewRun produces. Matching it exactly
+// before touching the filesystem means no second name (Windows drops a
+// trailing dot or space and ignores case) can reach the same run.
+var runIDPattern = regexp.MustCompile(`^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$`)
+
+func validRunID(s string) bool { return runIDPattern.MatchString(s) }
 
 func validMode(m Mode) bool {
 	return m == ModeLive || m == ModeRecord || m == ModeReplay
@@ -88,7 +96,7 @@ func (s Summary) Complete() bool {
 
 // decodeEvents reads a whole log and checks its order. Any problem is
 // ErrCorrupt (or ErrUnsupportedVersion): nothing is skipped or repaired.
-func decodeEvents(r io.Reader) (Summary, error) {
+func decodeEvents(r io.Reader, secret []byte, id string) (Summary, error) {
 	sum := Summary{Outcome: OutcomeIncomplete}
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 4096), MaxLineBytes+1)
@@ -96,7 +104,7 @@ func decodeEvents(r io.Reader) (Summary, error) {
 	var seq uint64
 	for sc.Scan() {
 		seq++
-		ev, err := decodeEvent(sc.Bytes())
+		ev, err := decodeEvent(sc.Bytes(), secret, runDomain(id))
 		if err == nil {
 			err = sum.apply(ev, seq)
 		}
@@ -127,12 +135,16 @@ func scanLines(data []byte, atEOF bool) (int, []byte, error) {
 	return 0, nil, nil
 }
 
-func decodeEvent(line []byte) (Event, error) {
+func decodeEvent(line, secret, domain []byte) (Event, error) {
 	if len(line) > MaxLineBytes {
 		return Event{}, fmt.Errorf("line over %d bytes: %w", MaxLineBytes, ErrCorrupt)
 	}
+	body, err := verify(secret, domain, line)
+	if err != nil {
+		return Event{}, fmt.Errorf("%w: %w", ErrCorrupt, err)
+	}
 	var ev Event
-	if err := json.Unmarshal(line, &ev); err != nil {
+	if err := json.Unmarshal(body, &ev); err != nil {
 		return Event{}, fmt.Errorf("%w: %w", ErrCorrupt, err)
 	}
 	if ev.V > Version {

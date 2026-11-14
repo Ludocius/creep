@@ -35,6 +35,7 @@ func TestCorruptLogFailsClosed(t *testing.T) {
 		{"unknown kind", startLine + `{"v":1,"seq":2,"kind":"skip"}` + "\n", ErrCorrupt},
 		{"invalid mode", `{"v":1,"seq":1,"kind":"start","mode":"turbo"}` + "\n", ErrCorrupt},
 		{"step with text", startLine + `{"v":1,"seq":2,"kind":"step","step":"password = hunter2"}` + "\n", ErrCorrupt},
+		{"invalid reason", startLine + `{"v":1,"seq":2,"kind":"end","outcome":"incomplete","reason":"no such reason!"}` + "\n", ErrCorrupt},
 		{"clean outcome", startLine + `{"v":1,"seq":2,"kind":"end","outcome":"clean"}` + "\n", ErrCorrupt},
 		{"event after end", startLine + `{"v":1,"seq":2,"kind":"end","outcome":"complete"}` + "\n" +
 			`{"v":1,"seq":3,"kind":"step","step":"a"}` + "\n", ErrCorrupt},
@@ -110,7 +111,7 @@ func writeLog(t *testing.T, s *Store, content string) string {
 	t.Helper()
 	r := newRun(t, s)
 	_ = r.Close()
-	if err := os.WriteFile(filepath.Join(r.Dir(), eventsFile), []byte(content), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(r.Dir(), eventsFile), signedLog(r.ID(), content), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return r.ID()

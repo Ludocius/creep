@@ -15,5 +15,8 @@ const nonblockFlag = 0
 // journals directory entries itself.
 func syncDir(*os.Root, string) error { return nil }
 
+// looseSecret is not checked off Unix; the file lives in the user's profile.
+func looseSecret(fs.FileInfo) bool { return false }
+
 // looseMode is not checked off Unix, where permission bits are not ACLs.
 func looseMode(fs.FileInfo) bool { return false }

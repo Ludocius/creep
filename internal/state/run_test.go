@@ -14,7 +14,7 @@ import (
 
 func openStore(t *testing.T) *Store {
 	t.Helper()
-	s, err := Open(filepath.Join(t.TempDir(), ".creep"))
+	s, err := Open(filepath.Join(t.TempDir(), ".creep"), testSecret)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +189,7 @@ func TestOpenRefusesUnsafeDir(t *testing.T) {
 	if err := os.WriteFile(file, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Open(file); err == nil {
+	if _, err := Open(file, testSecret); err == nil {
 		t.Error("Open(regular file) succeeded")
 	}
 	if runtime.GOOS == "windows" {
@@ -202,7 +202,7 @@ func TestOpenRefusesUnsafeDir(t *testing.T) {
 	if err := os.Chmod(loose, 0o777); err != nil { //nolint:gosec // G302: the test needs a world-writable dir to prove Open refuses it
 		t.Fatal(err)
 	}
-	if _, err := Open(loose); !errors.Is(err, ErrUnsafePath) {
+	if _, err := Open(loose, testSecret); !errors.Is(err, ErrUnsafePath) {
 		t.Errorf("Open(0777 dir) err = %v; want ErrUnsafePath", err)
 	}
 }

@@ -14,7 +14,11 @@ import (
 // run and one corrupt run, and returns their IDs.
 func makeRuns(t *testing.T) (open, ended, corrupt string) {
 	t.Helper()
-	s, err := state.Open(stateDir)
+	secret, err := state.UserSecret()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := state.Open(stateDir, secret)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,6 +50,7 @@ func makeRuns(t *testing.T) (open, ended, corrupt string) {
 // Every resume outcome exits 2 until scan exists: a resume that scanned
 // nothing must never pass a CI gate.
 func TestResumeFailsClosed(t *testing.T) {
+	isolateUserConfig(t)
 	t.Chdir(t.TempDir())
 	code, _, stderr := run("resume", "anything")
 	if code != exitcode.ConfigError || !strings.Contains(stderr, "no run state") {
@@ -79,6 +84,16 @@ func TestResumeFailsClosed(t *testing.T) {
 				t.Fatalf("stderr carries a raw escape: %q", stderr)
 			}
 		})
+	}
+}
+
+// isolateUserConfig points os.UserConfigDir at a temporary directory, so
+// tests never read or create the developer's real state secret.
+func isolateUserConfig(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	for _, v := range []string{"XDG_CONFIG_HOME", "AppData", "HOME"} {
+		t.Setenv(v, dir)
 	}
 }
 
