@@ -1,0 +1,5 @@
+[
+{"status":200,"body":{"id":"chatcmpl-replay","object":"chat.completion","created":1763000000,"model":"replay-model","choices":[{"index":0,"message":{"role":"assistant","content":"Sure! Here is the JSON: {vulnerable: yes}","refusal":null},"finish_reason":"stop"}],"usage":{"prompt_tokens":120,"completion_tokens":14,"total_tokens":134}}},
+{"status":200,"body":{"id":"chatcmpl-replay","object":"chat.completion","created":1763000000,"model":"replay-model","choices":[{"index":0,"message":{"role":"assistant","content":"```json\n{\"vulnerable\":true,\"class\":\"sqli\"}\n```","refusal":null},"finish_reason":"stop"}],"usage":{"prompt_tokens":150,"completion_tokens":16,"total_tokens":166}}},
+{"status":200,"body":{"id":"chatcmpl-replay","object":"chat.completion","created":1763000000,"model":"replay-model","choices":[{"index":0,"message":{"role":"assistant","content":"{\"vulnerable\":true,\"class\":\"sqli\"} {\"vulnerable\":false}","refusal":null},"finish_reason":"stop"}],"usage":{"prompt_tokens":160,"completion_tokens":18,"total_tokens":178}}}
+]

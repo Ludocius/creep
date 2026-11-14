@@ -1,0 +1,3 @@
+[
+{"status":200,"body":{"id":"msg_replay","type":"message","role":"assistant","model":"replay-model","content":[{"type":"text","text":"{\"vulnerable\":false,"},{"type":"text","text":"\"class\":\"xss\"}"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":180,"output_tokens":14}}}
+]

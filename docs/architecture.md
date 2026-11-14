@@ -66,7 +66,7 @@ A package may import only packages in **lower** layers and only those listed in 
 | `config` | Five config layers, org policy, CI detection | Project file never loosens CI gates or grants consent (#61, #82) | ✅ (#62, #63 open) |
 | `redact` | Secret and PII redaction with stable markers | Whole file redacted before fragmenting; linear time; `ErrRunFull` fails closed | ✅ (follow-ups open) |
 | `gateway` | **Only** network path | Allowlist before DNS, TLS, pinning, no redirects, consent, run and endpoint token budget, AIMD concurrency, write-ahead `egress.log`, opaque client | ✅ |
-| `models` | HTTP and command contracts, tool canary | No provider-specific code; model output never executed | ⬜ #5, #6 |
+| `models` | HTTP and command contracts, tool canary | No provider SDK; model output decoded into closed structs, never executed; key only from `CREEP_API_KEY` | ✅ HTTP (#5); ⬜ command #6 |
 | `state` | JSONL run state, `--record`, `--replay`, resume | Append-only; replay is deterministic | ⬜ #8 |
 | `static` | tree-sitter (WASM) routes, sinks and auth; optional scanners | Output is IDs and enums only | ⬜ #85–#88, #10 |
 | `calibrate` | Seeded tasks, per-class score, tier, 30-day cache | Same seed gives the same tasks; runs through gateway | ⬜ #89–#91 |
