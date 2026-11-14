@@ -9,7 +9,7 @@ import (
 
 const digits = "0123456789"
 
-// secretMakers build random secrets in formats the vendored rules cover.
+// secretMakers build random secrets in formats the secret rules cover.
 // Prefixes are split so this file holds no literal credential pattern.
 var secretMakers = []func(*rand.Rand) string{
 	fakeAWS,
@@ -20,6 +20,9 @@ var secretMakers = []func(*rand.Rand) string{
 	},
 	func(rng *rand.Rand) string { return "sk" + "_live_" + fakeToken(rng, alnum, 24) },
 	func(rng *rand.Rand) string { return "sk-" + "ant-api03-" + fakeToken(rng, alnum+"_-", 93) + "AA" },
+	// rules/local.toml (#75); a trailing "-" escaped the vendored OpenAI rule.
+	func(rng *rand.Rand) string { return fakeDockerPAT(rng, '-') },
+	func(rng *rand.Rand) string { return fakeOpenAIKey(rng, '-') },
 	// Keys cut by a fragment boundary: no END, no BEGIN, neither.
 	func(rng *rand.Rand) string {
 		return pemEdge("BEGIN", "OPENSSH") + "\n" + strings.Join(fakeBody(rng, 200, 70), "\n")
