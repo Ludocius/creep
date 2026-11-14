@@ -185,7 +185,7 @@ func TestDecodeOutput(t *testing.T) {
 		{"empty", "  ", reasonEmpty},
 		{"null", "null", "it was not a JSON object"},
 		{"array", `[{"class":"xss"}]`, "it was not a JSON object"},
-		{"wrong type", `{"vulnerable":"yes","class":"xss"}`, `field "vulnerable" must be a JSON boolean`},
+		{"wrong type", `{"vulnerable":"yes","class":"xss"}`, "a field must be a JSON boolean"},
 		{"truncated", `{"vulnerable":true`, "it was truncated JSON"},
 		{"syntax", `{"vulnerable":tru}`, "it was not valid JSON (error at byte 18)"},
 		{"too large", `{"class":"` + strings.Repeat("x", maxOutputBytes) + `"}`, "it was over 1048576 bytes"},

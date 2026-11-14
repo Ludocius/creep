@@ -22,8 +22,10 @@ var (
 )
 
 // InvalidOutputError means every attempt returned output that did not decode
-// into the requested struct or failed its Validate. Reason is creep's own
-// description of the last failure, never model text.
+// into the requested struct or failed its Validate. Reason describes the
+// last failure in creep's fixed text, which never includes a key or value
+// from the reply; the one exception is a caller's Validate message, cut to
+// 256 bytes of printable ASCII.
 type InvalidOutputError struct {
 	Attempts int
 	Reason   string
@@ -149,8 +151,9 @@ func (h *HTTP) call(req Request, payload []byte) gateway.Call {
 	}
 }
 
-// withReason appends the last rejection to the prompt. The reason is our own
-// text, so a retry never echoes model output back.
+// withReason appends the last rejection to the prompt. The reason is fixed
+// text (see InvalidOutputError), so a retry does not echo the reply back,
+// except what a caller's Validate message quotes.
 func withReason(prompt, reason string) string {
 	if reason == "" {
 		return prompt

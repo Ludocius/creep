@@ -15,8 +15,8 @@ const maxOutputBytes = 1 << 20
 // maxReasonBytes caps a rejection reason, which goes back into the prompt.
 const maxReasonBytes = 256
 
-// Rejection reasons the wire parsers report. They are fixed text, so model
-// output never reaches a retry prompt or an error.
+// Rejection reasons the wire parsers report. They are fixed text, so no part
+// of the reply reaches a retry prompt or an error through them.
 const (
 	reasonTruncated = "it was cut off at the output token limit"
 	reasonRefused   = "it was a refusal"
@@ -68,8 +68,9 @@ func decodeOutput[T any](content []byte) (T, string) {
 	return v, ""
 }
 
-// jsonReason describes a decode error without quoting the input: field
-// names come from the caller's struct tags, never from the model.
+// jsonReason describes a decode error without quoting the input. It names
+// no field: UnmarshalTypeError.Field holds map keys the model chose, so a
+// path could carry text from the reply into the retry prompt.
 func jsonReason(err error) string {
 	var syntax *json.SyntaxError
 	var typ *json.UnmarshalTypeError
@@ -77,7 +78,7 @@ func jsonReason(err error) string {
 	case errors.As(err, &syntax):
 		return fmt.Sprintf("it was not valid JSON (error at byte %d)", syntax.Offset)
 	case errors.As(err, &typ):
-		return fmt.Sprintf("field %q must be a JSON %s", cleanReason(typ.Field), jsonKind(typ.Type.Kind().String()))
+		return "a field must be a JSON " + jsonKind(typ.Type.Kind().String())
 	case errors.Is(err, io.ErrUnexpectedEOF):
 		return "it was truncated JSON"
 	case strings.HasPrefix(err.Error(), "json: unknown field "):
