@@ -190,4 +190,4 @@ Skipped on purpose: architectural quanta per service, cross-service schema evolu
 | [0004](adr/0004-pentester-per-release.md) | Pentester once per version and on external PRs |
 | [0005](adr/0005-auditor-architecture-review.md) | Auditor reviews PRs against this document; per-version architecture review |
 | [0006](adr/0006-three-features-in-flight.md) | Up to three features in flight, each with its own loop |
-| [0007](adr/0007-wazero-tree-sitter.md) | wazero runs tree-sitter grammars built to WebAssembly; pinned artifacts and sandbox limits |
+| [0008](adr/0008-wazero-tree-sitter.md) | wazero runs tree-sitter grammars built to WebAssembly; pinned artifacts and sandbox limits |

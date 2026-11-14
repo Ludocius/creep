@@ -48,7 +48,7 @@ func decodePackages(data []byte) (map[string]listedPackage, error) {
 // module-relative package allowed to import it. wazero links net only for
 // WASI sockets, which a guest gets only if the host passes a listener through
 // wazero/experimental/sock; internal/static never does, and importing that
-// package is not listed here, so it would fail this check (ADR 0007).
+// package is not listed here, so it would fail this check (ADR 0008).
 var netReachAllowed = map[string]string{
 	"github.com/tetratelabs/wazero":                                "internal/static",
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1": "internal/static",

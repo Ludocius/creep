@@ -6,7 +6,7 @@
 // grammars compiled to WebAssembly and run by wazero, so the binary stays
 // static (CGO_ENABLED=0) and a parser bug triggered by a hostile file stays
 // inside a sandbox with no file system, network, clock or environment
-// (ADR 0007).
+// (ADR 0008).
 //
 // Each parse gets a fresh module instance with a memory cap, a node cap and a
 // deadline, and the host validates every record the guest returns before it

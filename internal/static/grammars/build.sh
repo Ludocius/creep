@@ -1,6 +1,6 @@
 #!/bin/sh
 # Rebuilds the tree-sitter grammar modules that internal/static embeds
-# (ADR 0007). Run on linux/amd64 with curl, tar and sha256sum, for example:
+# (ADR 0008). Run on linux/amd64 with curl, tar and sha256sum, for example:
 #
 #   docker run --rm -v "$PWD:/src" -w /src golang:1.27.4 internal/static/grammars/build.sh
 #

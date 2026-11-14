@@ -1,4 +1,4 @@
-# ADR 0007: wazero and tree-sitter grammars compiled to WebAssembly
+# ADR 0008: wazero and tree-sitter grammars compiled to WebAssembly
 
 - **Status:** Accepted
 - **Date:** 2026-11-14

@@ -34,7 +34,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 This product embeds WebAssembly modules built by
-internal/static/grammars/build.sh (see docs/adr/0007-wazero-tree-sitter.md)
+internal/static/grammars/build.sh (see docs/adr/0008-wazero-tree-sitter.md)
 from the following sources, each licensed under the MIT License (same text as
 above, with the copyright line shown):
   tree-sitter v0.27.1 (https://github.com/tree-sitter/tree-sitter)
