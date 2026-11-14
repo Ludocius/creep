@@ -111,7 +111,8 @@ Always on, not configurable: secret redaction, `egress.log`, no telemetry. An or
 - **SARIF** for GitHub code scanning, GitLab, DefectDojo, SonarQube
 - **JSON** with a stable `schema_version`
 - **Markdown** report with a coverage section and a data-handling section
-- Exit codes: `0` nothing blocking · `1` gate exceeded · `2` config error · `3` model or sandbox error
+- **JSON** schema: [docs/schemas/report-v1.json](docs/schemas/report-v1.json)
+- Exit codes: `0` nothing blocking · `1` gate exceeded · `2` config error · `3` model or sandbox error · `4` incomplete run (report written, not everything evaluated; [ADR 0007](docs/adr/0007-exit-code-incomplete.md))
 
 ## Roadmap
 

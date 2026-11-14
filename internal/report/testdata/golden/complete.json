@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "tool": {
+    "name": "creep",
+    "version": "v0.0.0-test",
+    "commit": "0000000"
+  },
+  "run": {
+    "incomplete": false
+  },
+  "findings": [
+    {
+      "id": "f1",
+      "class": "sqli",
+      "status": "verified",
+      "path": "app/db.py",
+      "line": 12
+    },
+    {
+      "id": "f2",
+      "class": "path_traversal",
+      "status": "probable",
+      "path": "app/`tick`|pipe.py",
+      "line": 7
+    },
+    {
+      "id": "f5",
+      "class": "command_injection",
+      "status": "probable",
+      "path": "bad�utf8 #?%.py",
+      "line": 0
+    },
+    {
+      "id": "f3",
+      "class": "sqli",
+      "status": "discarded",
+      "path": "app/db.py",
+      "line": 40
+    },
+    {
+      "id": "f4",
+      "class": "ssrf",
+      "status": "not_evaluated",
+      "path": "svc/fetch.js",
+      "line": 9
+    }
+  ],
+  "coverage": {
+    "classes": [
+      {
+        "class": "sqli",
+        "status": "covered",
+        "detected": 9,
+        "tasks": 10,
+        "ci_low": 0.596,
+        "ci_high": 0.982
+      },
+      {
+        "class": "path_traversal",
+        "status": "partial",
+        "detected": 3,
+        "tasks": 6,
+        "ci_low": 0.188,
+        "ci_high": 0.812
+      },
+      {
+        "class": "ssrf",
+        "status": "not_evaluated",
+        "detected": 0,
+        "tasks": 0,
+        "ci_low": 0,
+        "ci_high": 1
+      }
+    ],
+    "not_evaluated": [
+      {
+        "path": "www.evil.example/[link](http://x)\u003cscript\u003e.js",
+        "reason": "too_large"
+      },
+      {
+        "path": "ok\u001b[31mred\nnewline.py",
+        "reason": "line_too_long"
+      },
+      {
+        "path": "bidi\u202egnp.exe",
+        "reason": "read_failed"
+      }
+    ]
+  },
+  "data_handling": {
+    "requests": 3,
+    "bytes": 2050,
+    "endpoints": [
+      {
+        "endpoint": "http://127.0.0.1:8080/v1/chat/completions",
+        "models": [
+          "local|model"
+        ],
+        "requests": 1,
+        "bytes": 50,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "outcomes": {
+          "http_error": 1
+        }
+      },
+      {
+        "endpoint": "https://api.example.com/v1/messages",
+        "models": [
+          "m-large",
+          "m-small"
+        ],
+        "requests": 2,
+        "bytes": 2000,
+        "input_tokens": 300,
+        "output_tokens": 40,
+        "outcomes": {
+          "no_result": 1,
+          "ok": 1
+        }
+      }
+    ],
+    "redactions": {
+      "AWS_KEY": 3,
+      "EMAIL": 1
+    }
+  }
+}

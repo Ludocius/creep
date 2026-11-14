@@ -1,0 +1,260 @@
+{
+  "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "creep",
+          "version": "v0.0.0-test",
+          "informationUri": "https://github.com/sneakercreepers/creep",
+          "rules": [
+            {
+              "id": "command_injection",
+              "shortDescription": {
+                "text": "creep vulnerability class command_injection"
+              }
+            },
+            {
+              "id": "path_traversal",
+              "shortDescription": {
+                "text": "creep vulnerability class path_traversal"
+              }
+            },
+            {
+              "id": "sqli",
+              "shortDescription": {
+                "text": "creep vulnerability class sqli"
+              }
+            }
+          ]
+        }
+      },
+      "invocations": [
+        {
+          "executionSuccessful": true,
+          "toolExecutionNotifications": [
+            {
+              "descriptor": {
+                "id": "creep/not-evaluated/too_large"
+              },
+              "level": "warning",
+              "message": {
+                "text": "file not evaluated: too_large"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "www.evil.example/%5Blink%5D%28http%3A//x%29%3Cscript%3E.js",
+                      "uriBaseId": "%SRCROOT%"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "descriptor": {
+                "id": "creep/not-evaluated/line_too_long"
+              },
+              "level": "warning",
+              "message": {
+                "text": "file not evaluated: line_too_long"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "ok%1B%5B31mred%0Anewline.py",
+                      "uriBaseId": "%SRCROOT%"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "descriptor": {
+                "id": "creep/not-evaluated/read_failed"
+              },
+              "level": "warning",
+              "message": {
+                "text": "file not evaluated: read_failed"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "bidi%E2%80%AEgnp.exe",
+                      "uriBaseId": "%SRCROOT%"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "results": [
+        {
+          "ruleId": "sqli",
+          "ruleIndex": 2,
+          "kind": "fail",
+          "level": "error",
+          "message": {
+            "text": "sqli finding f1 (verified)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/db.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 12
+                }
+              }
+            }
+          ],
+          "properties": {
+            "creep_id": "f1",
+            "status": "verified"
+          }
+        },
+        {
+          "ruleId": "path_traversal",
+          "ruleIndex": 1,
+          "kind": "fail",
+          "level": "warning",
+          "message": {
+            "text": "path_traversal finding f2 (probable)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "app/%60tick%60%7Cpipe.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 7
+                }
+              }
+            }
+          ],
+          "properties": {
+            "creep_id": "f2",
+            "status": "probable"
+          }
+        },
+        {
+          "ruleId": "command_injection",
+          "ruleIndex": 0,
+          "kind": "fail",
+          "level": "warning",
+          "message": {
+            "text": "command_injection finding f5 (probable)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "bad%FFutf8%20%23%3F%25.py",
+                  "uriBaseId": "%SRCROOT%"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "creep_id": "f5",
+            "status": "probable"
+          }
+        }
+      ],
+      "properties": {
+        "creep_schema_version": 1,
+        "incomplete": false,
+        "coverage": {
+          "classes": [
+            {
+              "class": "sqli",
+              "status": "covered",
+              "detected": 9,
+              "tasks": 10,
+              "ci_low": 0.596,
+              "ci_high": 0.982
+            },
+            {
+              "class": "path_traversal",
+              "status": "partial",
+              "detected": 3,
+              "tasks": 6,
+              "ci_low": 0.188,
+              "ci_high": 0.812
+            },
+            {
+              "class": "ssrf",
+              "status": "not_evaluated",
+              "detected": 0,
+              "tasks": 0,
+              "ci_low": 0,
+              "ci_high": 1
+            }
+          ],
+          "not_evaluated": [
+            {
+              "path": "www.evil.example/[link](http://x)\u003cscript\u003e.js",
+              "reason": "too_large"
+            },
+            {
+              "path": "ok\u001b[31mred\nnewline.py",
+              "reason": "line_too_long"
+            },
+            {
+              "path": "bidi\u202egnp.exe",
+              "reason": "read_failed"
+            }
+          ]
+        },
+        "data_handling": {
+          "requests": 3,
+          "bytes": 2050,
+          "endpoints": [
+            {
+              "endpoint": "http://127.0.0.1:8080/v1/chat/completions",
+              "models": [
+                "local|model"
+              ],
+              "requests": 1,
+              "bytes": 50,
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "outcomes": {
+                "http_error": 1
+              }
+            },
+            {
+              "endpoint": "https://api.example.com/v1/messages",
+              "models": [
+                "m-large",
+                "m-small"
+              ],
+              "requests": 2,
+              "bytes": 2000,
+              "input_tokens": 300,
+              "output_tokens": 40,
+              "outcomes": {
+                "no_result": 1,
+                "ok": 1
+              }
+            }
+          ],
+          "redactions": {
+            "AWS_KEY": 3,
+            "EMAIL": 1
+          }
+        }
+      }
+    }
+  ]
+}

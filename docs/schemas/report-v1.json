@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/sneakercreepers/creep/blob/main/docs/schemas/report-v1.json",
+  "title": "creep JSON report, schema_version 1",
+  "description": "Written by creep's JSON report format. Fields are added only with a schema_version bump and a new schema file; a committed fixture per version must stay valid (internal/report contract test).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "tool", "run", "findings", "coverage", "data_handling"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "commit"],
+      "properties": {
+        "name": { "const": "creep" },
+        "version": { "type": "string" },
+        "commit": { "type": "string" }
+      }
+    },
+    "run": {
+      "description": "An incomplete run is never a clean result, whatever its findings say; creep exits 4 for it (ADR 0007).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["incomplete"],
+      "properties": {
+        "incomplete": { "type": "boolean" },
+        "reason": { "$ref": "#/definitions/id" }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/finding" }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classes", "not_evaluated"],
+      "properties": {
+        "classes": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/classCoverage" }
+        },
+        "not_evaluated": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/notEvaluated" }
+        }
+      }
+    },
+    "data_handling": { "$ref": "#/definitions/dataHandling" }
+  },
+  "definitions": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "count": { "type": "integer", "minimum": 0 },
+    "counts": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/count" }
+    },
+    "path": {
+      "description": "Repository-relative path, taken from the scanned repository: untrusted, escape before printing.",
+      "type": "string",
+      "minLength": 1
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "class", "status", "path", "line"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "class": { "$ref": "#/definitions/id" },
+        "status": { "enum": ["verified", "probable", "discarded", "not_evaluated"] },
+        "path": { "$ref": "#/definitions/path" },
+        "line": { "description": "1-based; 0 means the whole file.", "$ref": "#/definitions/count" }
+      }
+    },
+    "classCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "status", "detected", "tasks", "ci_low", "ci_high"],
+      "properties": {
+        "class": { "$ref": "#/definitions/id" },
+        "status": { "enum": ["covered", "partial", "not_evaluated"] },
+        "detected": { "$ref": "#/definitions/count" },
+        "tasks": { "$ref": "#/definitions/count" },
+        "ci_low": { "type": "number", "minimum": 0, "maximum": 1 },
+        "ci_high": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "notEvaluated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "reason"],
+      "properties": {
+        "path": { "type": "string" },
+        "reason": { "enum": ["read_failed", "too_large", "line_too_long", "redact_failed", "run_full", "send_failed", "budget"] }
+      }
+    },
+    "dataHandling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requests", "bytes", "endpoints", "redactions"],
+      "properties": {
+        "requests": { "$ref": "#/definitions/count" },
+        "bytes": { "$ref": "#/definitions/count" },
+        "endpoints": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/endpointUsage" }
+        },
+        "redactions": { "$ref": "#/definitions/counts" }
+      }
+    },
+    "endpointUsage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["endpoint", "models", "requests", "bytes", "input_tokens", "output_tokens", "outcomes"],
+      "properties": {
+        "endpoint": { "type": "string" },
+        "models": { "type": "array", "items": { "type": "string" } },
+        "requests": { "$ref": "#/definitions/count" },
+        "bytes": { "$ref": "#/definitions/count" },
+        "input_tokens": { "$ref": "#/definitions/count" },
+        "output_tokens": { "$ref": "#/definitions/count" },
+        "outcomes": { "$ref": "#/definitions/counts" }
+      }
+    }
+  }
+}
