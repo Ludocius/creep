@@ -138,3 +138,40 @@ func assertMentions(t *testing.T, problems, want []string) {
 		}
 	}
 }
+
+// TestNetReachExemption allows wazero only from internal/static, and never
+// wazero's socket package, which a guest would need to reach the network.
+func TestNetReachExemption(t *testing.T) {
+	const wz = "github.com/tetratelabs/wazero"
+	mainPkg := func(name string, imports ...string) listedPackage {
+		p := listedPackage{ImportPath: testMod + "/" + name, Imports: imports}
+		p.Module = &struct {
+			Path string
+			Main bool
+		}{testMod, true}
+		return p
+	}
+	pkgs := map[string]listedPackage{
+		wz:                        {ImportPath: wz, Imports: []string{"net"}},
+		wz + "/experimental/sock": {ImportPath: wz + "/experimental/sock", Imports: []string{"net"}},
+		"net":                     {ImportPath: "net"},
+	}
+	for _, p := range []listedPackage{
+		mainPkg("internal/static", wz),
+		mainPkg("internal/static/sub", wz),
+		mainPkg("internal/reader", wz),
+		mainPkg("internal/cli/internal/static", wz),
+		mainPkg("internal/planner", wz+"/experimental/sock"),
+	} {
+		pkgs[p.ImportPath] = p
+	}
+	pkgs[testMod+"/internal/static"] = mainPkg("internal/static", wz, wz+"/experimental/sock")
+	want := []string{
+		"internal/cli/internal/static reaches package net through " + wz + " ",
+		"internal/planner reaches package net through " + wz + "/experimental/sock",
+		"internal/reader reaches package net through " + wz + " ",
+		"internal/static reaches package net through " + wz + "/experimental/sock",
+		"internal/static/sub reaches package net through " + wz + " ",
+	}
+	assertMentions(t, checkNetReach(testMod, pkgs), want)
+}

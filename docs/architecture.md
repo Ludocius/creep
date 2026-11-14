@@ -68,7 +68,7 @@ A package may import only packages in **lower** layers and only those listed in 
 | `gateway` | **Only** network path | Allowlist before DNS, TLS, pinning, no redirects, consent, run and endpoint token budget, AIMD concurrency, write-ahead `egress.log`, opaque client | ✅ |
 | `models` | HTTP and command contracts, tool canary | No provider SDK; model output decoded into closed structs, never executed; key only from `CREEP_API_KEY` | ✅ HTTP (#5); ⬜ command #6 |
 | `state` | JSONL run state, `--record`, `--replay`, resume | Append-only; replay is deterministic | ⬜ #8 |
-| `static` | tree-sitter (WASM) routes, sinks and auth; optional scanners | Output is IDs and enums only | ⬜ #85–#88, #10 |
+| `static` | tree-sitter (WASM) routes, sinks and auth; optional scanners | Output is IDs and enums only; grammars run in wazero with memory, node and time caps, and guest records are validated | ✅ parsing (#85); ⬜ #86–#88, #10 |
 | `calibrate` | Seeded tasks, per-class score, tier, 30-day cache | Same seed gives the same tasks; runs through gateway | ✅ task generator (#89); ⬜ #90, #91 |
 | `planner` | Hypotheses from IDs and enums | **Never receives repository text** (no import of `reader`, `redact`, `static` text types) | ⬜ #12 |
 | `reader` | Quarantined reading, closed output schema | Output never flows to planner as text | ⬜ #92–#95 |
@@ -160,6 +160,7 @@ Automated checks that guard an architectural property. A new property needs a ch
 | State shipped in a scanned repo is never trusted | Planted cache entries and run logs are never served or read as complete (`internal/state/trust_test.go`) | `make check` |
 | Layer table holds | `layers` block in §3: every module package has a row and imports only lower layers its row lists (`layers.go`) | `make budget`, CI `budget` |
 | Calibration is reproducible and labels hold | Golden hashes per seed; every task keeps its twin marker, sink line and label; templates refuse aliasing renames (`calibrate/generate_test.go`, `templates_test.go`) | `make check` |
+| Parser stays sandboxed and pinned | Embedded grammars match `SHA256SUMS`; modules import only the allowlisted WASI calls; hostile records and over-limit files fail closed (`internal/static/grammar_test.go`, `parser_test.go`, `tree_test.go`) | `make check` |
 
 Function length has no automated check; the auditor reviews it.
 
@@ -189,3 +190,4 @@ Skipped on purpose: architectural quanta per service, cross-service schema evolu
 | [0004](adr/0004-pentester-per-release.md) | Pentester once per version and on external PRs |
 | [0005](adr/0005-auditor-architecture-review.md) | Auditor reviews PRs against this document; per-version architecture review |
 | [0006](adr/0006-three-features-in-flight.md) | Up to three features in flight, each with its own loop |
+| [0008](adr/0008-wazero-tree-sitter.md) | wazero runs tree-sitter grammars built to WebAssembly; pinned artifacts and sandbox limits |
