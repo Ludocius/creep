@@ -10,6 +10,14 @@
 //     for byte from a pinned release and evaluated with the standard regexp
 //     package, so gitleaks is data, not a dependency. Version, URL and MIT
 //     license are in NOTICE; a test pins the file's SHA-256 and rule count.
+//   - Secrets the vendored rules miss: local rules in the same format
+//     (rules/local.toml), so gitleaks.toml stays upstream. They cover Docker
+//     access tokens (dckr_pat_, dckr_oat_), Discord webhook ids and tokens,
+//     and OpenAI scoped keys (sk-proj-, sk-svcacct-, sk-admin-). The vendored
+//     openai-api-key rule ends in \b, which fails after a key whose last
+//     character is "-"; it is the only vendored rule with a \b right after a
+//     possible "-" (TestTrailingBoundaryAfterDash fails if a re-vendor adds
+//     one). A local id may not repeat a vendored one.
 //   - PII: email addresses, card numbers (Luhn), US SSNs (dashed, SSA-valid
 //     ranges), Spanish DNI and NIE (control letter) and Brazilian CPF (two
 //     check digits, dotted or not). Checksums keep ordinary numbers in code

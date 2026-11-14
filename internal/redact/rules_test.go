@@ -14,6 +14,7 @@ const (
 	gitleaksSHA256   = "e163e53b9e7e8a8511e77271e2b323ed057759542a6d988258afe3a1fa329caf"
 	gitleaksRuleSpec = 222 // [[rules]] tables in the file
 	gitleaksRegexes  = 221 // rules with a regex; pkcs12-file is path-only
+	localRegexes     = 3   // rules in rules/local.toml
 )
 
 func TestVendoredRulesUnchanged(t *testing.T) {
@@ -35,8 +36,8 @@ func TestVendoredRulesCount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rules) != gitleaksRegexes {
-		t.Errorf("compiled %d rules, want %d (none may be skipped for RE2)", len(rules), gitleaksRegexes)
+	if want := gitleaksRegexes + localRegexes; len(rules) != want {
+		t.Errorf("compiled %d rules, want %d (none may be skipped for RE2)", len(rules), want)
 	}
 }
 

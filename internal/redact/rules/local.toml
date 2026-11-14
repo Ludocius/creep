@@ -1,0 +1,26 @@
+# Rules creep adds to the vendored gitleaks rules (gitleaks.toml), for tokens
+# those miss. Same TOML subset as gitleaks.toml (see toml.go); ids must not
+# repeat a vendored id. Each token class is unbounded and greedy so the whole
+# run is masked, and none crosses a newline, so the reach stays one line.
+
+# Docker Hub personal and organization access tokens. No leading \b: a token
+# glued to a word character before it is still masked.
+[[rules]]
+id = "docker-access-token"
+regex = '''(dckr_(?:pat|oat)_[A-Za-z0-9_-]{20,})'''
+keywords = ["dckr_"]
+
+# Discord webhook URLs. The id and the token after it are masked; the host
+# and path stay readable.
+[[rules]]
+id = "discord-webhook-token"
+regex = '''(?i)discord(?:app)?\.com/api/(?:v[0-9]{1,2}/)?webhooks/([0-9]{17,20}/[A-Za-z0-9_-]{40,})'''
+secretGroup = 1
+keywords = ["discord"]
+
+# OpenAI project, service account and admin keys. The vendored rule ends in
+# \b, which fails after a key whose last character is "-" (issue #75).
+[[rules]]
+id = "openai-scoped-key"
+regex = '''(sk-(?:proj|svcacct|admin)-[A-Za-z0-9_-]{40,})'''
+keywords = ["sk-proj-", "sk-svcacct-", "sk-admin-"]

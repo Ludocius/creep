@@ -15,6 +15,12 @@ import (
 //go:embed rules/gitleaks.toml
 var gitleaksTOML []byte
 
+// localTOML holds creep's own rules for tokens the vendored ones miss. It is
+// a separate file so gitleaks.toml stays byte for byte upstream.
+//
+//go:embed rules/local.toml
+var localTOML []byte
+
 // secretRule is a compiled gitleaks rule.
 type secretRule struct {
 	label       string // marker label, e.g. SECRET_AWS_ACCESS_TOKEN
@@ -33,17 +39,31 @@ var (
 // defaultRules compiles the vendored rules once per process.
 func defaultRules() ([]secretRule, error) {
 	loadOnce.Do(func() {
-		loadedRules, loadErr = compileRules(gitleaksTOML)
+		loadedRules, loadErr = compileRules(gitleaksTOML, localTOML)
 	})
 	return loadedRules, loadErr
+}
+
+// parseRuleFiles parses each rules file and rejects an id that two files
+// share, so a local rule cannot shadow a vendored one.
+func parseRuleFiles(files [][]byte) ([]ruleSpec, error) {
+	var specs []ruleSpec
+	for _, data := range files {
+		s, err := parseRules(data)
+		if err != nil {
+			return nil, err
+		}
+		specs = append(specs, s...)
+	}
+	return specs, validateSpecs(specs)
 }
 
 // compileRules parses and compiles every rule that has a regex. Rules without
 // one (path-only rules such as pkcs12-file) do not apply to text and are
 // skipped. A regex that fails to compile is an error: dropping a rule silently
 // would let that secret type through.
-func compileRules(data []byte) ([]secretRule, error) {
-	specs, err := parseRules(data)
+func compileRules(files ...[]byte) ([]secretRule, error) {
+	specs, err := parseRuleFiles(files)
 	if err != nil {
 		return nil, err
 	}
