@@ -164,7 +164,7 @@ func TestStubsFailClosed(t *testing.T) {
 
 func TestHelpMarksUnimplementedCommands(t *testing.T) {
 	_, stdout, _ := run("--help")
-	for _, name := range []string{"init", "doctor", "scan"} {
+	for _, name := range []string{"init", "doctor", "scan", "why"} {
 		c, _ := findCommand(name)
 		assertContains(t, "usage", stdout, []string{c.name + " ", c.summary, "(not implemented yet)"})
 	}

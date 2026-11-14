@@ -3,5 +3,6 @@
 /.creep/
 egress.log
 *.sarif
+!internal/report/testdata/golden/*.sarif
 coverage.out
 .DS_Store

@@ -61,7 +61,7 @@ A package may import only packages in **lower** layers and only those listed in 
 
 | Package | Responsibility | Invariants it owns | State |
 |---|---|---|---|
-| `exitcode` | Process exit codes | 0 ok · 1 gate · 2 config/consent · 3 model/sandbox | ✅ |
+| `exitcode` | Process exit codes | 0 ok · 1 gate · 2 config/consent · 3 model/sandbox · 4 incomplete (ADR 0007) | ✅ |
 | `buildinfo` | Version and provenance strings | none | ✅ |
 | `config` | Five config layers, org policy, CI detection | Project file never loosens CI gates or grants consent (#61, #82) | ✅ (#62, #63 open) |
 | `redact` | Secret and PII redaction with stable markers | Whole file redacted before fragmenting; linear time; `ErrRunFull` fails closed | ✅ (follow-ups open) |
@@ -72,7 +72,7 @@ A package may import only packages in **lower** layers and only those listed in 
 | `calibrate` | Seeded tasks, per-class score, tier, 30-day cache | Same seed gives the same tasks; runs through gateway | ✅ task generator (#89); ⬜ #90, #91 |
 | `planner` | Hypotheses from IDs and enums | **Never receives repository text** (no import of `reader`, `redact`, `static` text types) | ⬜ #12 |
 | `reader` | Quarantined reading, closed output schema | Output never flows to planner as text | ⬜ #92–#95 |
-| `report` | SARIF, JSON (`schema_version`), Markdown, coverage | Every class is covered, partial or not evaluated | ⬜ #14 |
+| `report` | SARIF, JSON (`schema_version`), Markdown, coverage, data handling from `egress.log` | Every class is covered, partial or not evaluated; every not-scanned file is listed; an incomplete run is never clean; repository strings escaped | ✅ (#14; `creep why` and scan wiring wait for the pipeline) |
 | `sandbox`, `verify` | Container runtime, internal network, PoC runs | No internet; never on the host | ⬜ v0.2 |
 | `mcp` | Read-only MCP server | No sandbox, no writes | ⬜ v0.3 |
 | `cli` | Commands and flags (`flag`, no framework) | Unimplemented commands fail closed | ✅ |
@@ -87,7 +87,7 @@ These follow semver once v1.0 ships. Before then, any change needs a note in the
 |---|---|---|
 | CLI flags and exit codes | `cli`, `exitcode` | semver |
 | Config and policy schema | `config` | `version:` key |
-| JSON report | `report` | `schema_version` |
+| JSON report | `report` | `schema_version`; schema in `docs/schemas/report-vN.json` |
 | SARIF | `report` | SARIF 2.1.0 |
 | Run state (JSONL) | `state` | per-line `v` |
 | `egress.log` line | `gateway` | additive fields only |
@@ -157,6 +157,8 @@ Automated checks that guard an architectural property. A new property needs a ch
 | No known-vulnerable code or leaked secret | govulncheck, gitleaks over full history, CodeQL | CI |
 | Vulnerable fixtures stay data and stay accurate | `internal/tools/testapps`: every `testdata/apps` app has a safe twin, holds only source files (no manifests, lockfiles or scripts), stays under 200 lines, and its `expected.json` matches the real lines; no Makefile, workflow, script or program-starting Go code names the apps | `make check` |
 | Run-state JSONL stays additive (contract `v`) | Committed v1 fixtures decode with unknown fields disallowed (`TestV1FixtureDecodes`, `internal/state/testdata/v1`) | `make check` |
+| JSON report contract holds (`schema_version`) | A committed fixture per released version (`internal/report/testdata/contract/vN.json`) validates against `docs/schemas/report-vN.json`; the current one decodes with unknown fields disallowed; fresh output validates too (`contract_test.go`, `golden_test.go`) | `make check` |
+| SARIF stays valid for code scanning | Output validates against the committed official SARIF 2.1.0 schema, no network (`TestSARIFValidatesAgainstOfficialSchema`) | `make check` |
 | State shipped in a scanned repo is never trusted | Planted cache entries and run logs are never served or read as complete (`internal/state/trust_test.go`) | `make check` |
 | Layer table holds | `layers` block in §3: every module package has a row and imports only lower layers its row lists (`layers.go`) | `make budget`, CI `budget` |
 | Calibration is reproducible and labels hold | Golden hashes per seed; every task keeps its twin marker, sink line and label; templates refuse aliasing renames (`calibrate/generate_test.go`, `templates_test.go`) | `make check` |
@@ -189,3 +191,4 @@ Skipped on purpose: architectural quanta per service, cross-service schema evolu
 | [0004](adr/0004-pentester-per-release.md) | Pentester once per version and on external PRs |
 | [0005](adr/0005-auditor-architecture-review.md) | Auditor reviews PRs against this document; per-version architecture review |
 | [0006](adr/0006-three-features-in-flight.md) | Up to three features in flight, each with its own loop |
+| [0007](adr/0007-exit-code-incomplete.md) | Exit code 4 for incomplete runs |
