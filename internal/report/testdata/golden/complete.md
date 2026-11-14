@@ -26,13 +26,15 @@ Run `creep why <id>` for the evidence behind a finding.
 
 ## Not evaluated
 
-3 files were not evaluated; nothing in them is covered by this report.
+5 files were not evaluated; nothing in them is covered by this report.
 
 | File | Reason |
 |---|---|
 | `www.evil.example/[link](http://x)<script>.js` | `too large` |
 | `ok\x1b[31mred\x0anewline.py` | `line too long` |
 | `bidi\u202egnp.exe` | `read failed` |
+| `c1\x9b31mcsi.py` | `redact failed` |
+| `del\x7fete.py` | `read failed` |
 
 ## Data handling
 

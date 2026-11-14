@@ -22,6 +22,8 @@ var hostilePaths = []string{
 	"ok\x1b[31mred\nnewline.py",
 	"bidi" + string(rune(0x202e)) + "gnp.exe", // right-to-left override
 	"bad\xffutf8 #?%.py",
+	"c1" + string(rune(0x9b)) + "31mcsi.py", // 8-bit CSI
+	"del" + string(rune(0x7f)) + "ete.py",
 }
 
 const sampleEgress = `{"v":1,"type":"request","id":"r1","time":"t","endpoint":"https://api.example.com/v1/messages","model":"m-large","purpose":"read","bytes":1200,"sha256":"x","redactions":{"AWS_KEY":2},"payload_file":"payloads/r1.payload"}
@@ -55,6 +57,8 @@ func sampleInput(t *testing.T, incomplete bool) Input {
 			{Path: hostilePaths[1], Reason: SkipTooLarge},
 			{Path: hostilePaths[2], Reason: SkipLineTooLong},
 			{Path: hostilePaths[3], Reason: SkipReadFailed},
+			{Path: hostilePaths[5], Reason: SkipRedactFailed},
+			{Path: hostilePaths[6], Reason: SkipReadFailed},
 		},
 		DataHandling: dh,
 	}

@@ -84,6 +84,14 @@
       {
         "path": "bidi\u202egnp.exe",
         "reason": "read_failed"
+      },
+      {
+        "path": "c1\u009b31mcsi.py",
+        "reason": "redact_failed"
+      },
+      {
+        "path": "del\u007fete.py",
+        "reason": "read_failed"
       }
     ]
   },

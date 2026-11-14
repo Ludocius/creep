@@ -102,6 +102,44 @@
             },
             {
               "descriptor": {
+                "id": "creep/not-evaluated/redact_failed"
+              },
+              "level": "warning",
+              "message": {
+                "text": "file not evaluated: redact_failed"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "c1%C2%9B31mcsi.py",
+                      "uriBaseId": "%SRCROOT%"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "descriptor": {
+                "id": "creep/not-evaluated/read_failed"
+              },
+              "level": "warning",
+              "message": {
+                "text": "file not evaluated: read_failed"
+              },
+              "locations": [
+                {
+                  "physicalLocation": {
+                    "artifactLocation": {
+                      "uri": "del%7Fete.py",
+                      "uriBaseId": "%SRCROOT%"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "descriptor": {
                 "id": "creep/not-evaluated/run_full"
               },
               "level": "warning",
@@ -259,6 +297,14 @@
             },
             {
               "path": "bidi\u202egnp.exe",
+              "reason": "read_failed"
+            },
+            {
+              "path": "c1\u009b31mcsi.py",
+              "reason": "redact_failed"
+            },
+            {
+              "path": "del\u007fete.py",
               "reason": "read_failed"
             },
             {

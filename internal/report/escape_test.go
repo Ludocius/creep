@@ -46,14 +46,15 @@ func TestRenderedOutputIsInert(t *testing.T) {
 	}
 }
 
-func TestUnicodeFormatRunesEscapedInJSON(t *testing.T) {
-	got := escapeFormatRunes([]byte(`{"p":"a` + "\u202e\U000E0041\u00e9" + `"}`))
-	want := `{"p":"a\u202e\udb40\udc41` + "\u00e9" + `"}`
+func TestControlAndFormatRunesEscapedInJSON(t *testing.T) {
+	raw := "a" + string([]rune{0x202e, 0xE0041, 0x9b, 0x7f, 0xe9})
+	got := escapeInert([]byte("{\n" + `  "p": "` + raw + `"}`))
+	want := "{\n" + `  "p": "a` + `\u202e\udb40\udc41\u009b\u007f` + string(rune(0xe9)) + `"}`
 	if string(got) != want {
-		t.Fatalf("got %s, want %s", got, want)
+		t.Fatalf("got %q, want %q", got, want)
 	}
 	var v map[string]string
-	if err := json.Unmarshal(got, &v); err != nil || v["p"] != "a\u202e\U000E0041\u00e9" {
+	if err := json.Unmarshal(got, &v); err != nil || v["p"] != raw {
 		t.Errorf("escaped JSON decodes to %q, %v", v["p"], err)
 	}
 }
