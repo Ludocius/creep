@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -21,6 +22,8 @@ type globalOptions struct {
 	logLevel   string
 	format     string
 	configPath string
+	record     bool // state.ModeRecord: call every model and overwrite recordings
+	replay     bool // state.ModeReplay: serve recordings only, never the network
 	// explicit holds the names of flags the user passed, so only those
 	// become the flags config layer; defaults must not override files.
 	explicit map[string]bool
@@ -56,6 +59,8 @@ func newFlagSet(name string, opts *globalOptions) *flag.FlagSet {
 	fs.StringVar(&opts.logLevel, "log-level", opts.logLevel, "")
 	fs.StringVar(&opts.format, "format", opts.format, "")
 	fs.StringVar(&opts.configPath, "config", opts.configPath, "")
+	fs.BoolVar(&opts.record, "record", opts.record, "")
+	fs.BoolVar(&opts.replay, "replay", opts.replay, "")
 	return fs
 }
 
@@ -65,6 +70,9 @@ func (o globalOptions) validate() error {
 	}
 	if !slices.Contains(formats, o.format) {
 		return fmt.Errorf("invalid --format %q: want one of %s", o.format, strings.Join(formats, ", "))
+	}
+	if o.record && o.replay {
+		return errors.New("--record and --replay cannot be used together")
 	}
 	return validateConfigPath(o.configPath)
 }
